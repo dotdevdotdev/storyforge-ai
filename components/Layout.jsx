@@ -1,29 +1,30 @@
 import React from "react";
+import Link from "next/link";
 
 const Layout = ({ children }) => {
   return (
     <div className="layout">
       <header className="navbar">
         <nav>
-          <a href="/" className="logo">
-            StoryForge AI
-          </a>
-          <div className="nav-links">
-            <a href="/characters">Characters</a>
-            <a href="/themes">Themes</a>
-            <a href="/locations">Locations</a>
+          <div className="nav-container">
+            <Link href="/" className="logo">
+              StoryForge AI
+            </Link>
+            <div className="nav-links">
+              <Link href="/characters">Characters</Link>
+              <Link href="/themes">Themes</Link>
+              <Link href="/locations">Locations</Link>
+            </div>
           </div>
         </nav>
       </header>
 
-      <main className="main-content">
-        <div className="content-wrapper">
-          <div className="scroll-container">{children}</div>
-        </div>
-      </main>
+      <main className="main-content">{children}</main>
 
       <footer className="footer">
-        <p>&copy; 2023 StoryForge AI. All rights reserved.</p>
+        <p>
+          &copy; {new Date().getFullYear()} StoryForge AI. All rights reserved.
+        </p>
       </footer>
 
       <style jsx>{`
@@ -33,33 +34,22 @@ const Layout = ({ children }) => {
           min-height: 100vh;
         }
         .navbar {
-          position: sticky;
-          top: 0;
           background-color: #f8f9fa;
           padding: 1rem;
-          z-index: 1000;
         }
-        .navbar nav {
+        .nav-container {
           display: flex;
-          justify-content: space-around;
+          justify-content: space-between;
+          align-items: center;
+          max-width: 1200px;
+          margin: 0 auto;
         }
-        .navbar a {
-          text-decoration: none;
-          color: #333;
-          font-weight: bold;
+        .nav-links {
+          display: flex;
+          gap: 1rem;
         }
         .main-content {
           flex: 1;
-          display: flex;
-          flex-direction: column;
-        }
-        .content-wrapper {
-          flex: 1;
-          overflow: hidden;
-        }
-        .scroll-container {
-          height: 100%;
-          overflow-y: auto;
           padding: 2rem;
         }
         .footer {
