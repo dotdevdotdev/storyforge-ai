@@ -11,6 +11,7 @@ const Layout = ({ children }) => {
               StoryForge AI
             </Link>
             <div className="nav-links">
+              <Link href="/stories">Stories</Link>
               <Link href="/characters">Characters</Link>
               <Link href="/themes">Themes</Link>
               <Link href="/locations">Locations</Link>
