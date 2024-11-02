@@ -23,7 +23,11 @@ export default async function handler(req, res) {
     const collection = db.collection("Characters");
 
     if (req.method === "POST") {
-      const result = await collection.insertOne(req.body);
+      const characterData = {
+        ...req.body,
+        createdAt: new Date(),
+      };
+      const result = await collection.insertOne(characterData);
       res.status(201).json({
         message: "Character created successfully",
         id: result.insertedId,

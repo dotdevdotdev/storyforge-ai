@@ -1,6 +1,81 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../components/Layout";
 
+const CharacterModal = ({ character, onClose }) => {
+  if (!character) return null;
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <button className="close-button" onClick={onClose}>
+          &times;
+        </button>
+        <h2>{character.name}</h2>
+        <div className="character-details">
+          <p>
+            <strong>Description:</strong> {character.description}
+          </p>
+          <p>
+            <strong>Created:</strong>{" "}
+            {new Date(character.createdAt).toLocaleDateString()}
+          </p>
+          {/* Add more character details here as needed */}
+        </div>
+      </div>
+
+      <style jsx>{`
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-color: rgba(0, 0, 0, 0.7);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          z-index: 1000;
+        }
+
+        .modal-content {
+          background: white;
+          padding: 2rem;
+          border-radius: 8px;
+          max-width: 500px;
+          width: 90%;
+          max-height: 80vh;
+          overflow-y: auto;
+          position: relative;
+        }
+
+        .close-button {
+          position: absolute;
+          top: 10px;
+          right: 10px;
+          border: none;
+          background: none;
+          font-size: 24px;
+          cursor: pointer;
+          padding: 5px 10px;
+          border-radius: 4px;
+        }
+
+        .close-button:hover {
+          background-color: #f0f0f0;
+        }
+
+        .character-details {
+          margin-top: 1rem;
+        }
+
+        .character-details p {
+          margin: 0.5rem 0;
+        }
+      `}</style>
+    </div>
+  );
+};
+
 const Characters = () => {
   const [characters, setCharacters] = useState([]);
   const [newCharacter, setNewCharacter] = useState({
@@ -9,6 +84,7 @@ const Characters = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [selectedCharacter, setSelectedCharacter] = useState(null);
 
   // Fetch characters when component mounts
   useEffect(() => {
@@ -127,7 +203,7 @@ const Characters = () => {
           </button>
         </form>
 
-        {/* Characters List */}
+        {/* Updated Characters List */}
         {characters.length === 0 ? (
           <p>No characters created yet.</p>
         ) : (
@@ -140,13 +216,39 @@ const Characters = () => {
                   borderRadius: "4px",
                   padding: "1rem",
                   marginBottom: "1rem",
+                  cursor: "pointer",
+                  transition: "background-color 0.2s",
                 }}
+                onClick={() => setSelectedCharacter(character)}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.backgroundColor = "#f8f9fa")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.backgroundColor = "transparent")
+                }
               >
                 <h3 style={{ margin: "0 0 0.5rem 0" }}>{character.name}</h3>
-                <p style={{ margin: 0 }}>{character.description}</p>
+                <p
+                  style={{
+                    margin: 0,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {character.description}
+                </p>
               </li>
             ))}
           </ul>
+        )}
+
+        {/* Character Modal */}
+        {selectedCharacter && (
+          <CharacterModal
+            character={selectedCharacter}
+            onClose={() => setSelectedCharacter(null)}
+          />
         )}
       </div>
     </Layout>
