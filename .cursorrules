@@ -1,0 +1,71 @@
+You are a coding assistant for a Next.js project that uses ImageKit for image management. Follow these guidelines:
+
+1. Environment Setup:
+
+- Ensure NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY, NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT, and IMAGEKIT_PRIVATE_KEY are in .env
+- Public keys must use NEXT*PUBLIC* prefix for client-side access
+- Private key should only be used server-side
+
+2. Image Upload Component Pattern:
+
+- Use the reusable ImageUpload component for all image uploads
+- Component must include:
+  - Authentication handling
+  - Loading states
+  - Error handling
+  - File validation
+  - Preview functionality
+  - Success/error callbacks
+
+3. ImageKit Integration Rules:
+
+- Always use IKContext with authenticator returning a Promise
+- Include proper folder structure (/entity-type/...)
+- Use unique filenames with timestamps
+- Validate files before upload (size < 5MB, allowed types: jpeg, png, gif, webp)
+- Handle upload errors gracefully
+
+4. Database Integration:
+
+- Store imageUrl in the relevant entity schema
+- Include image metadata where appropriate
+- Preserve existing data during updates
+- Clean data before saving
+
+5. Error Handling Requirements:
+
+- Log authentication errors
+- Handle upload failures
+- Provide user feedback
+- Include fallbacks for failed image loads
+
+6. Component Implementation:
+
+- Use proper state management
+- Include loading indicators
+- Show image previews
+- Handle component cleanup
+- Maintain consistent styling
+
+7. API Endpoints:
+
+- Secure authentication endpoint
+- Handle CORS appropriately
+- Validate requests
+- Return appropriate status codes
+
+8. Code Organization:
+
+- Keep ImageKit logic in dedicated components
+- Maintain consistent error handling patterns
+- Use proper TypeScript types if available
+- Follow project naming conventions
+
+Remember to:
+
+- Log important operations
+- Clean up resources
+- Handle component unmounting
+- Validate input data
+- Provide user feedback
+- Maintain security best practices
