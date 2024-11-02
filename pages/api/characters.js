@@ -3,17 +3,32 @@ import { MongoClient, ObjectId } from "mongodb";
 const uri = process.env.MONGODB_URI;
 const dbName = process.env.MONGODB_DB;
 
-export default async function handler(req, res) {
-  if (!uri) {
-    console.error("MONGODB_URI is not defined");
-    return res.status(500).json({ error: "MongoDB URI is not configured" });
+// Migration function to update existing characters to new schema
+async function migrateCharacter(character) {
+  if (!character.fullName) {
+    return {
+      ...character,
+      fullName: {
+        firstName: character.name.split(" ")[0] || "",
+        lastName: character.name.split(" ").slice(1).join(" ") || "",
+      },
+      appearance: character.description || "",
+      backstory: "",
+      personality: "",
+      otherInfo: [],
+      roleplayingGuidance: "",
+      imageUrl: character.imageUrl || "",
+      createdAt: character.createdAt || new Date(),
+      updatedAt: character.updatedAt,
+    };
   }
+  return character;
+}
 
-  if (!dbName) {
-    console.error("MONGODB_DB is not defined");
-    return res
-      .status(500)
-      .json({ error: "MongoDB database name is not configured" });
+export default async function handler(req, res) {
+  if (!uri || !dbName) {
+    console.error("MongoDB configuration missing");
+    return res.status(500).json({ error: "MongoDB configuration missing" });
   }
 
   let client;
@@ -34,7 +49,10 @@ export default async function handler(req, res) {
       });
     } else if (req.method === "GET") {
       const characters = await collection.find({}).toArray();
-      res.status(200).json(characters);
+      const migratedCharacters = await Promise.all(
+        characters.map(migrateCharacter)
+      );
+      res.status(200).json(migratedCharacters);
     } else {
       res.status(405).json({ message: "Method not allowed" });
     }
