@@ -69,3 +69,62 @@ Remember to:
 - Validate input data
 - Provide user feedback
 - Maintain security best practices
+
+Complex Data Editing Patterns
+Each complex data type needs a specialized editor component
+Editors should support both form-based and raw JSON editing
+All editors must maintain data integrity during updates
+Provide clear validation feedback
+Include example data in field definitions
+Field Type System
+Basic types: text, textarea
+Complex types: json with subtypes:
+list (array management)
+key-value (object with string values)
+nested-object (like scenarios)
+Each field should specify:
+Required status
+Preview behavior
+Default values
+Example data for help text
+Modal Design Standards
+Header contains action controls (not footer)
+Toggle between form/JSON editing modes
+Consistent padding (2rem)
+Full-width form elements
+Clear validation feedback
+Proper overflow handling
+Component Hierarchy
+DataManager handles CRUD operations
+EditModal manages form/JSON editing modes
+Specialized editors for complex types:
+ListEditor for arrays
+KeyValueEditor for key-value pairs
+ScenarioEditor for nested objects
+Preview Formatting
+Show meaningful summaries in cards
+For arrays: show count of items
+For objects: show count of properties
+For text: show truncated content
+Handle invalid data gracefully
+State Management
+Clear state initialization
+Proper cleanup on unmount
+Loading state handling
+Error state management
+Modal state control
+Form data validation
+Styling Conventions
+Consistent spacing (2rem containers, 1rem gaps)
+Standard border radius (4px, 8px for cards)
+Hover effects for interactive elements
+Clear visual hierarchy
+Consistent color scheme
+Proper focus states
+Error Handling
+Validate JSON structure
+Required field validation
+Type-specific validation
+Clear error messages
+Preserve IDs during updates
+Handle API errors gracefully
