@@ -393,6 +393,80 @@ Remember:
   }
 }
 
+async function generateStory(req, res) {
+  try {
+    const { prompt, parameterId } = req.body;
+
+    // 1. Gather all required data
+    const [storyParameters, characters, locations, archetypes, themes] =
+      await Promise.all([
+        fetchStoryParameters(parameterId),
+        fetchCharacters(),
+        fetchLocations(),
+        fetchArchetypes(),
+        fetchThemes(),
+      ]);
+
+    // 2. Build the LLM prompt
+    const systemPrompt = `
+You are a story generator that must strictly follow these story parameters:
+${JSON.stringify(storyParameters.story_parameters, null, 2)}
+
+Key Requirements:
+- Use ONLY existing characters and locations unless absolutely necessary
+- Include at least one archetype from: ${storyParameters.story_parameters.themes.required_archetypes.join(
+      ", "
+    )}
+- Include themes: Primary: ${
+      storyParameters.story_parameters.themes.primary_theme
+    }, Secondary: ${storyParameters.story_parameters.themes.secondary_themes.join(
+      ", "
+    )}
+- Follow all special requirements and generation flags exactly
+- Any new characters should be minor background characters only
+
+Available Resources:
+Characters: ${JSON.stringify(characters.map((c) => c.name))}
+Locations: ${JSON.stringify(locations.map((l) => l.name))}
+Archetypes: ${JSON.stringify(archetypes.map((a) => a.name))}
+Themes: ${JSON.stringify(themes.map((t) => t.name))}
+
+User's Story Prompt:
+${prompt}
+
+Generate a detailed story skeleton that follows all parameters and requirements.
+`;
+
+    // 3. Generate story skeleton
+    const completion = await openai.createChatCompletion({
+      model: "gpt-4",
+      messages: [
+        { role: "system", content: systemPrompt },
+        {
+          role: "user",
+          content: "Generate a story skeleton following all parameters.",
+        },
+      ],
+      temperature: 0.7,
+    });
+
+    // 4. Process and validate the skeleton
+    const skeleton = completion.data.choices[0].text;
+    const validatedSkeleton = validateStoryRequirements(
+      skeleton,
+      storyParameters
+    );
+
+    // 5. Generate the full story
+    // ... rest of the story generation process ...
+
+    res.status(200).json({ story: finalStory });
+  } catch (error) {
+    console.error("Story generation failed:", error);
+    res.status(500).json({ error: "Failed to generate story" });
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });

@@ -14,10 +14,9 @@ const themeFields = [
   {
     name: "description",
     label: "Description",
-    type: "textarea",
+    type: "text",
     required: true,
     preview: true,
-    example: "Wild theories and investigations of mundane events",
   },
   {
     name: "elements",

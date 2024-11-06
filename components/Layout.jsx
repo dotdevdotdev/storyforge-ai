@@ -14,6 +14,8 @@ const Layout = ({ children }) => {
               <Link href="/stories">Stories</Link>
               <Link href="/characters">Characters</Link>
               <Link href="/themes">Themes</Link>
+              <Link href="/archetypes">Archetypes</Link>
+              <Link href="/story-parameters">Story Parameters</Link>
               <Link href="/locations">Locations</Link>
             </div>
           </div>
