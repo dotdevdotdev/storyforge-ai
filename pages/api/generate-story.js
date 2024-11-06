@@ -1,469 +1,469 @@
 import OpenAI from "openai";
 import { MongoClient } from "mongodb";
+import { ObjectId } from "mongodb";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Database connection helper
+const SYSTEM_MESSAGES = {
+  storyPlanning: `You are a master storyteller specializing in crafting engaging narratives within established universes. You must:
+
+1. STORY STRUCTURE & QUALITY:
+- Create emotionally resonant story arcs with clear stakes
+- Use established story tropes and motifs effectively
+- Build tension and pacing according to the story parameters
+- Ensure satisfying payoffs for all setups
+- Include character-revealing moments of both action and quiet
+
+2. CHARACTER USAGE:
+- Use existing characters' established traits and quirks naturally
+- Write dialogue that reveals character personality and emotions
+- Create meaningful character interactions and conflicts
+- Only add new background characters if absolutely necessary
+- Maintain consistent character voices
+
+3. WORLD CONSISTENCY:
+- Incorporate specified themes and archetypes organically
+- Use established locations to enhance atmosphere and story
+- Reference past events and running gags appropriately
+- Follow all special requirements and generation flags
+- Maintain established world rules and tone
+
+4. TECHNICAL REQUIREMENTS:
+- Include at least one required archetype
+- Feature primary and secondary themes as specified
+- Use primarily existing characters and locations
+- Keep new characters to minor background roles only
+- Follow all parameter constraints exactly`,
+
+  storyGeneration: `You are a skilled narrative writer who excels at crafting emotionally engaging stories. You must:
+
+1. WRITING STYLE:
+- Write vivid, sensory descriptions that bring scenes to life
+- Craft natural, character-driven dialogue with subtext
+- Balance action, dialogue, and introspection
+- Use varied sentence structure for pacing
+- Include emotional beats and character reactions
+
+2. SCENE CONSTRUCTION:
+- Open scenes with strong hooks
+- Build tension through escalating complications
+- Include meaningful character interactions
+- Use setting details to enhance mood
+- End scenes with compelling hooks
+
+3. DIALOGUE MASTERY:
+- Write distinct character voices based on their personalities
+- Include character-specific verbal tics and patterns
+- Use dialogue to advance plot and reveal character
+- Balance dialogue with action and description
+- Include emotional subtext in conversations
+
+4. TECHNICAL EXCELLENCE:
+- Maintain consistent POV and tense
+- Use proper paragraph breaks and formatting
+- Include clear scene transitions
+- Balance showing vs telling
+- Follow all story parameters exactly`,
+};
+
 async function connectToDb() {
   const uri = process.env.MONGODB_URI;
   const client = await MongoClient.connect(uri);
   return client.db(process.env.MONGODB_DB);
 }
 
-// Step 1: Fetch all characters and locations from DB
-async function fetchWorldData() {
-  const db = await connectToDb();
-  const characters = await db.collection("Characters").find({}).toArray();
-  const locations = await db.collection("Locations").find({}).toArray();
-  return { characters, locations };
+async function fetchAllResources(db, parameterId) {
+  if (!parameterId) {
+    throw new Error("Parameter ID is required");
+  }
+
+  try {
+    const [characters, locations, archetypes, themes, storyParameters] =
+      await Promise.all([
+        db.collection("Characters").find({}).toArray(),
+        db.collection("Locations").find({}).toArray(),
+        db.collection("Archetypes").find({}).toArray(),
+        db.collection("Themes").find({}).toArray(),
+        db
+          .collection("StoryParameters")
+          .findOne({ _id: new ObjectId(parameterId) }),
+      ]);
+
+    if (!storyParameters) {
+      throw new Error(`Story parameters not found for ID: ${parameterId}`);
+    }
+
+    return [storyParameters, characters, locations, archetypes, themes];
+  } catch (error) {
+    console.error("Error fetching resources:", error);
+    throw new Error(`Failed to fetch resources: ${error.message}`);
+  }
 }
 
-// Step 2: Generate multiple story skeletons
-async function generateStorySkeletons(userPrompt, worldData) {
-  const { characters, locations } = worldData;
+async function generateStoryPlan(prompt, resources) {
+  console.log("\n=== STORY PLAN GENERATION ===");
+  console.log("Building planning prompt with:");
+  console.log(
+    "- Story Parameters:",
+    JSON.stringify(resources.storyParameters, null, 2)
+  );
 
-  const skeletonsPrompt = `
-Generate 3 different story ideas using primarily the existing characters from our world.
+  // Validate and safely access nested properties
+  const storyParams = resources.storyParameters?.story_parameters || {};
+  const themes = storyParams.themes || {};
+  const requiredArchetypes = themes.required_archetypes || [];
+  const primaryTheme = themes.primary_theme || "none specified";
+  const secondaryThemes = themes.secondary_themes || [];
+  const generationFlags = storyParams.generation_flags || {};
 
-USER PROMPT: "${userPrompt}"
+  const planningPrompt = `
+Create a detailed story plan following these parameters:
 
-EXISTING CHARACTERS (USE THESE AS YOUR MAIN CHARACTERS):
-${characters
+STORY PARAMETERS:
+${JSON.stringify(storyParams, null, 2)}
+
+USER PROMPT:
+${prompt}
+
+AVAILABLE CHARACTERS:
+${resources.characters
   .map(
-    (char) =>
-      `- ${char.fullName?.firstName || char.name}: ${
-        char.description || char.appearance || "No description"
-      }
-      ${char.personality ? `Personality: ${char.personality}` : ""}
-      ${char.backstory ? `Background: ${char.backstory}` : ""}`
+    (c) => `- ${c.name}:
+  Description: ${c.description || "No description"}
+  Personality: ${c.personality || "Not specified"}
+  Key Traits: ${c.traits || "Not specified"}
+  Speech Pattern: ${c.speechPattern || "Standard"}`
   )
   .join("\n")}
 
 AVAILABLE LOCATIONS:
-${locations
-  .map((loc) => `- ${loc.name}: ${loc.description || "No description"}`)
-  .join("\n")}
-
-IMPORTANT GUIDELINES:
-1. Use ONLY existing characters as protagonists and supporting characters
-2. You may create new antagonists/villains if needed
-3. Each story should involve at least 2 existing characters
-4. Focus on character dynamics and relationships that make sense given their backgrounds
-
-Provide exactly 3 story outlines in this JSON format:
-{
-  "skeletons": [
-    {
-      "id": 1,
-      "existingCharacters": ["character1", "character2"],
-      "newCharacters": [{
-        "name": "villain_name",
-        "role": "antagonist",
-        "briefDescription": "brief character description"
-      }],
-      "selectedLocations": ["location1"],
-      "plotOutline": "Brief outline of the story structure",
-      "themes": ["theme1", "theme2"],
-      "tone": "intended tone of the story",
-      "uniqueHook": "what makes this version special",
-      "characterDynamics": "how the characters interact and why these specific characters work well together"
-    },
-    // ... similar structure for options 2 and 3
-  ]
-}`;
-
-  try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a story planner. Respond only with valid JSON containing exactly 3 story skeletons. Do not include markdown formatting or any other text.",
-        },
-        {
-          role: "user",
-          content: skeletonsPrompt,
-        },
-      ],
-      temperature: 0.8,
-    });
-
-    const response = completion.choices[0].message.content;
-
-    // Enhanced JSON parsing with fallbacks
-    try {
-      // First attempt: Direct JSON parse
-      return JSON.parse(response);
-    } catch (parseError) {
-      console.log("Initial JSON parse failed, attempting cleanup...");
-
-      // Remove any markdown formatting or extra text
-      let cleanedResponse = response;
-
-      // Remove markdown code blocks if present
-      cleanedResponse = cleanedResponse.replace(/```json\n|\n```/g, "");
-
-      // Remove any text before the first {
-      cleanedResponse = cleanedResponse.substring(
-        cleanedResponse.indexOf("{"),
-        cleanedResponse.lastIndexOf("}") + 1
-      );
-
-      try {
-        const parsedData = JSON.parse(cleanedResponse);
-
-        // Validate the expected structure
-        if (!parsedData.skeletons || !Array.isArray(parsedData.skeletons)) {
-          throw new Error("Invalid story skeletons structure");
-        }
-
-        return parsedData;
-      } catch (fallbackError) {
-        console.error("Failed to parse cleaned response:", cleanedResponse);
-        throw new Error(
-          "Could not parse story skeletons response into valid JSON"
-        );
-      }
-    }
-  } catch (error) {
-    console.error("Story skeleton generation error:", {
-      error,
-      message: error.message,
-      response: error.response?.data,
-    });
-    throw new Error(`Failed to generate story skeletons: ${error.message}`);
-  }
-}
-
-// Step 3: Select the best skeleton
-async function selectBestSkeleton(userPrompt, skeletons) {
-  const selectionPrompt = `
-Select the best story outline based on this prompt.
-
-USER PROMPT: "${userPrompt}"
-
-STORY OPTIONS:
-${skeletons.skeletons
+${resources.locations
   .map(
-    (skeleton) => `
-OPTION ${skeleton.id}:
-Plot: ${skeleton.plotOutline}
-Existing Characters: ${skeleton.existingCharacters.join(", ")}
-${
-  skeleton.newCharacters?.length
-    ? `New Characters: ${skeleton.newCharacters
-        .map((c) => `${c.name} (${c.role})`)
-        .join(", ")}`
-    : ""
-}
-Locations: ${skeleton.selectedLocations.join(", ")}
-Character Dynamics: ${skeleton.characterDynamics}
-Hook: ${skeleton.uniqueHook}
-`
+    (l) => `- ${l.name}:
+  Description: ${l.description || "No description"}
+  Atmosphere: ${l.atmosphere || "Not specified"}
+  Notable Features: ${l.features || "Not specified"}`
   )
   .join("\n")}
 
-Select the option that:
-1. Makes best use of existing character relationships
-2. Has the most compelling character dynamics
-3. Introduces new characters only when necessary
-4. Best fulfills the user's prompt
+REQUIRED ELEMENTS:
+- Must use at least one archetype from: ${
+    requiredArchetypes.join(", ") || "any available archetype"
+  }
+- Primary theme: ${primaryTheme}
+- Secondary themes: ${secondaryThemes.join(", ") || "none specified"}
 
-Respond with this exact JSON:
+STORY REQUIREMENTS:
+1. Emotional Core:
+   - Clear emotional stakes for main characters
+   - Character growth opportunities
+   - Meaningful relationships and conflicts
+
+2. Structure:
+   - Strong hook and inciting incident
+   - Rising action with complications
+   - Satisfying climax and resolution
+   - Proper setup and payoff
+
+3. Character Usage:
+   - Leverage existing character dynamics
+   - Use established quirks and traits
+   - Create meaningful interactions
+   - Include character-specific running gags
+
+4. World Integration:
+   - Reference past events naturally
+   - Use locations meaningfully
+   - Include appropriate callbacks
+   - Maintain world consistency
+
+GENERATION FLAGS:
+Emphasis on: ${
+    (generationFlags.emphasis_on || []).join(", ") || "none specified"
+  }
+Avoid: ${(generationFlags.avoid || []).join(", ") || "none specified"}
+Maintain continuity with: ${
+    (generationFlags.maintain_continuity || []).join(", ") || "none specified"
+  }
+
+Provide a story plan in this JSON format:
 {
-  "selectedSkeletonId": <number 1-3>,
-  "reasoning": "<why this combination of characters and plot works best>",
-  "suggestedEnhancements": [
-    "<enhancement 1>",
-    "<enhancement 2>"
+  "title": "Story title",
+  "synopsis": "Brief story overview",
+  "emotionalCore": {
+    "mainConflict": "The central emotional conflict",
+    "characterStakes": "What characters stand to gain or lose",
+    "thematicResonance": "How themes connect to emotional core"
+  },
+  "selectedCharacters": [
+    {
+      "name": "Character name",
+      "role": "Role in story",
+      "emotionalArc": "Character's emotional journey",
+      "keyScenes": ["Important scenes for this character"]
+    }
+  ],
+  "newBackgroundCharacters": [
+    {
+      "name": "Name",
+      "role": "Minor role description",
+      "purpose": "Specific story function"
+    }
+  ],
+  "selectedLocations": [
+    {
+      "name": "Location name",
+      "scenes": ["Scenes that occur here"],
+      "atmosphere": "How location enhances story"
+    }
+  ],
+  "selectedArchetype": {
+    "name": "chosen archetype name",
+    "implementation": "How it's used in story"
+  },
+  "sceneOutline": [
+    {
+      "scene": "Scene description",
+      "purpose": "Scene's story function",
+      "emotionalBeat": "Key emotional moment"
+    }
+  ],
+  "thematicElements": [
+    {
+      "theme": "Theme name",
+      "execution": "How theme is expressed"
+    }
   ]
 }`;
 
+  console.log("\nSending Planning Prompt to OpenAI:");
+  console.log(planningPrompt);
+
   const completion = await openai.chat.completions.create({
-    model: "gpt-3.5-turbo",
+    model: "gpt-4",
     messages: [
       {
         role: "system",
-        content:
-          "You are a story editor. Select exactly one story outline and respond only with valid JSON.",
+        content: SYSTEM_MESSAGES.storyPlanning,
       },
       {
         role: "user",
-        content: selectionPrompt,
+        content: planningPrompt,
       },
     ],
     temperature: 0.7,
   });
 
-  const selection = JSON.parse(completion.choices[0].message.content);
-  const selectedSkeleton =
-    skeletons.skeletons.find((s) => s.id === selection.selectedSkeletonId) ||
-    skeletons.skeletons[0];
+  const response = completion.choices[0].message.content;
+  console.log("\nReceived Story Plan:");
+  console.log(response);
 
-  return {
-    skeleton: selectedSkeleton,
-    reasoning: selection.reasoning,
-    suggestedEnhancements: selection.suggestedEnhancements,
-  };
+  return JSON.parse(response);
 }
 
-// Step 4: Generate final story
-async function generateFinalStory(userPrompt, skeletonData, worldData) {
-  const { skeleton, suggestedEnhancements } = skeletonData;
-  const { characters, locations } = worldData;
+async function generateStorySkeleton(storyPlan, resources) {
+  console.log("\n=== STORY SKELETON GENERATION ===");
 
-  // Get full details for existing characters
-  const existingCharDetails = skeleton.existingCharacters
-    .map((charName) =>
-      characters.find((c) => (c.fullName?.firstName || c.name) === charName)
-    )
-    .filter(Boolean)
-    .map((char) => ({
-      name: char.fullName?.firstName || char.name,
-      description: char.description || char.appearance,
-      personality: char.personality,
-      backstory: char.backstory,
-    }));
+  const skeletonPrompt = `
+Create a detailed story skeleton based on this story plan:
+${JSON.stringify(storyPlan, null, 2)}
 
-  // Include any new characters (typically villains)
-  const allCharacters = [
-    ...existingCharDetails,
-    ...(skeleton.newCharacters || []),
-  ];
+Follow these requirements:
+1. Expand each scene in the scene outline
+2. Detail character interactions and dialogue moments
+3. Specify emotional beats and atmosphere
+4. Include setup/payoff points
+5. Note where running gags and callbacks occur
 
-  const selectedLocDetails = skeleton.selectedLocations
-    .map((locName) => locations.find((l) => l.name === locName))
-    .filter(Boolean)
-    .map((loc) => ({
-      name: loc.name,
-      description: loc.description,
-    }));
+Respond with a JSON skeleton in this format:
+{
+  "title": "${storyPlan.title}",
+  "scenes": [
+    {
+      "setting": "Location and atmosphere description",
+      "characters": ["Characters present"],
+      "action": "What happens in the scene",
+      "dialogue_moments": ["Key dialogue points"],
+      "emotional_beats": ["Emotional moments"],
+      "setups_payoffs": ["Elements being setup or paid off"],
+      "callbacks_gags": ["Running gags or callbacks used"]
+    }
+  ],
+  "character_arcs": [
+    {
+      "character": "Character name",
+      "arc_points": ["Key character moments through story"]
+    }
+  ],
+  "thematic_elements": [
+    {
+      "theme": "Theme name",
+      "story_points": ["How theme manifests in story"]
+    }
+  ]
+}`;
+
+  console.log("Sending Skeleton Prompt to OpenAI");
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4",
+    messages: [
+      {
+        role: "system",
+        content: SYSTEM_MESSAGES.storyPlanning,
+      },
+      {
+        role: "user",
+        content: skeletonPrompt,
+      },
+    ],
+    temperature: 0.7,
+  });
+
+  const response = completion.choices[0].message.content;
+  console.log("\nReceived Story Skeleton");
+
+  return JSON.parse(response);
+}
+
+async function generateFinalStory(userPrompt, skeleton, resources) {
+  console.log("\n=== FINAL STORY GENERATION ===");
+
+  // Keep the character and location extraction logic...
+  const existingCharDetails = skeleton.scenes
+    .flatMap((scene) => scene.characters)
+    .filter((char, index, self) => self.indexOf(char) === index)
+    .map((charName) => {
+      const char = resources.characters.find(
+        (c) => (c.fullName?.firstName || c.name) === charName
+      );
+      return char
+        ? {
+            name: char.fullName?.firstName || char.name,
+            description: char.description || char.appearance,
+            personality: char.personality,
+            backstory: char.backstory,
+          }
+        : null;
+    })
+    .filter(Boolean);
+
+  const selectedLocDetails = skeleton.scenes
+    .map((scene) => {
+      const location = resources.locations.find((l) =>
+        scene.setting.includes(l.name)
+      );
+      return location
+        ? {
+            name: location.name,
+            description: location.description,
+          }
+        : null;
+    })
+    .filter(Boolean);
 
   const finalPrompt = `
-Create a complete story package based on these elements:
+Write a complete story based on these elements:
 
 USER PROMPT: "${userPrompt}"
 
-PLOT OUTLINE: ${skeleton.plotOutline}
+STORY OUTLINE:
+Title: ${skeleton.title}
+
+SCENES:
+${skeleton.scenes
+  .map(
+    (scene) => `
+SCENE:
+Setting: ${scene.setting}
+Characters Present: ${scene.characters.join(", ")}
+Action: ${scene.action}
+Key Dialogue: ${scene.dialogue_moments.join(" | ")}
+Emotional Beats: ${scene.emotional_beats.join(" | ")}
+`
+  )
+  .join("\n")}
+
+CHARACTER ARCS:
+${skeleton.character_arcs
+  .map(
+    (arc) => `
+${arc.character}:
+${arc.arc_points.join("\n- ")}
+`
+  )
+  .join("\n")}
+
+THEMATIC ELEMENTS:
+${skeleton.thematic_elements
+  .map(
+    (theme) => `
+${theme.theme}:
+${theme.story_points.join("\n- ")}
+`
+  )
+  .join("\n")}
 
 CHARACTERS:
-EXISTING CHARACTERS:
 ${existingCharDetails
   .map(
-    (char) => `- ${char.name}:
-   Description: ${char.description}
-   Personality: ${char.personality || "Not specified"}
-   Background: ${char.backstory || "Not specified"}`
+    (char) => `
+- ${char.name}:
+  Description: ${char.description}
+  Personality: ${char.personality || "Not specified"}
+  Background: ${char.backstory || "Not specified"}`
   )
   .join("\n")}
-
-${
-  skeleton.newCharacters?.length
-    ? `
-NEW CHARACTERS:
-${skeleton.newCharacters
-  .map(
-    (char) => `- ${char.name} (${char.role}):
-   Description: ${char.briefDescription}`
-  )
-  .join("\n")}
-`
-    : ""
-}
-
-CHARACTER DYNAMICS: ${skeleton.characterDynamics}
 
 LOCATIONS:
 ${selectedLocDetails
   .map((loc) => `- ${loc.name}: ${loc.description}`)
   .join("\n")}
 
-TONE: ${skeleton.tone}
-
-SUGGESTED IMPROVEMENTS:
-${suggestedEnhancements.join("\n")}
-
-Write a complete story package following these requirements:
-1. The story should be approximately 1000-1500 words
+Write a complete story following these requirements:
+1. The story should be approximately 1500-2500 words
 2. Include proper paragraphs and dialogue
 3. Have a clear beginning, middle, and end
 4. Focus on character interactions and development
 5. Use descriptive language for locations and atmosphere
+6. Use the characters and locations provided in the resources
+7. Use the themes and archetypes provided in the resources
+8. Include at least one of the required archetypes
+9. Include the primary and secondary themes as specified
+10. Brainstorm and include at least one running gag
+11. Improvise with dialogue and character interactions
+12. Include a satisfying resolution
+13. Maintain a consistent tone and mood
+14. Include a callback to a previous event or character
+15. Make dialogue feel natural and believable
 
-IMPORTANT: Respond ONLY with a valid JSON object in exactly this format:
-{
-  "title": "An engaging title for the story",
-  "blurb": "A compelling 2-3 sentence preview of the story",
-  "featuredCharacters": [
-    {
-      "name": "Character Name",
-      "role": "Role in the story (protagonist, antagonist, supporting, etc.)",
-      "significance": "Brief note about their importance to the plot"
-    }
-  ],
-  "featuredLocations": [
-    {
-      "name": "Location Name",
-      "significance": "Brief note about how this location is used in the story"
-    }
-  ],
-  "content": "YOUR FULL 1000-1500 WORD STORY HERE WITH PROPER PARAGRAPHS AND DIALOGUE",
-  "themes": ["theme1", "theme2"],
-  "genre": "Primary genre of the story",
-  "mood": "Overall mood/atmosphere of the story"
-}
+IMPORTANT: Return ONLY the story text with proper paragraphs and formatting. Do not include any metadata, JSON formatting, or additional information.`;
 
-Remember: 
-- The story in the 'content' field must be a complete narrative of 1000-1500 words
-- Include proper paragraph breaks and dialogue
-- No additional text or formatting outside the JSON structure
-- The JSON must be valid and parseable`;
+  console.log("Sending Final Story Prompt to OpenAI");
 
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo-16k",
+      model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
-          content:
-            "You are a creative writer that responds only in valid JSON format. Never include markdown formatting or additional text.",
+          content: SYSTEM_MESSAGES.storyGeneration,
         },
         {
           role: "user",
           content: finalPrompt,
         },
       ],
-      max_tokens: 4000,
+      max_tokens: 16384,
       temperature: 0.8,
     });
 
-    const response = completion.choices[0].message.content;
-
-    try {
-      // First attempt: Direct JSON parse
-      return JSON.parse(response);
-    } catch (parseError) {
-      console.log("Initial JSON parse failed, attempting cleanup...");
-
-      // Remove any markdown formatting or extra text
-      let cleanedResponse = response;
-
-      // Remove markdown code blocks if present
-      cleanedResponse = cleanedResponse.replace(/```json\n|\n```/g, "");
-
-      // Remove any text before the first { and after the last }
-      cleanedResponse = cleanedResponse.substring(
-        cleanedResponse.indexOf("{"),
-        cleanedResponse.lastIndexOf("}") + 1
-      );
-
-      try {
-        const parsedData = JSON.parse(cleanedResponse);
-
-        // Validate the expected structure
-        const requiredFields = [
-          "title",
-          "blurb",
-          "content",
-          "featuredCharacters",
-          "featuredLocations",
-        ];
-        for (const field of requiredFields) {
-          if (!parsedData[field]) {
-            throw new Error(`Missing required field: ${field}`);
-          }
-        }
-
-        return parsedData;
-      } catch (fallbackError) {
-        console.error("Failed to parse cleaned response:", cleanedResponse);
-        throw new Error("Could not parse story response into valid JSON");
-      }
-    }
+    return completion.choices[0].message.content.trim();
   } catch (error) {
-    console.error("Story generation error:", {
-      error,
-      message: error.message,
-      response: error.response?.data,
-    });
+    console.error("Story generation error:", error);
     throw new Error(`Failed to generate final story: ${error.message}`);
-  }
-}
-
-async function generateStory(req, res) {
-  try {
-    const { prompt, parameterId } = req.body;
-
-    // 1. Gather all required data
-    const [storyParameters, characters, locations, archetypes, themes] =
-      await Promise.all([
-        fetchStoryParameters(parameterId),
-        fetchCharacters(),
-        fetchLocations(),
-        fetchArchetypes(),
-        fetchThemes(),
-      ]);
-
-    // 2. Build the LLM prompt
-    const systemPrompt = `
-You are a story generator that must strictly follow these story parameters:
-${JSON.stringify(storyParameters.story_parameters, null, 2)}
-
-Key Requirements:
-- Use ONLY existing characters and locations unless absolutely necessary
-- Include at least one archetype from: ${storyParameters.story_parameters.themes.required_archetypes.join(
-      ", "
-    )}
-- Include themes: Primary: ${
-      storyParameters.story_parameters.themes.primary_theme
-    }, Secondary: ${storyParameters.story_parameters.themes.secondary_themes.join(
-      ", "
-    )}
-- Follow all special requirements and generation flags exactly
-- Any new characters should be minor background characters only
-
-Available Resources:
-Characters: ${JSON.stringify(characters.map((c) => c.name))}
-Locations: ${JSON.stringify(locations.map((l) => l.name))}
-Archetypes: ${JSON.stringify(archetypes.map((a) => a.name))}
-Themes: ${JSON.stringify(themes.map((t) => t.name))}
-
-User's Story Prompt:
-${prompt}
-
-Generate a detailed story skeleton that follows all parameters and requirements.
-`;
-
-    // 3. Generate story skeleton
-    const completion = await openai.createChatCompletion({
-      model: "gpt-4",
-      messages: [
-        { role: "system", content: systemPrompt },
-        {
-          role: "user",
-          content: "Generate a story skeleton following all parameters.",
-        },
-      ],
-      temperature: 0.7,
-    });
-
-    // 4. Process and validate the skeleton
-    const skeleton = completion.data.choices[0].text;
-    const validatedSkeleton = validateStoryRequirements(
-      skeleton,
-      storyParameters
-    );
-
-    // 5. Generate the full story
-    // ... rest of the story generation process ...
-
-    res.status(200).json({ story: finalStory });
-  } catch (error) {
-    console.error("Story generation failed:", error);
-    res.status(500).json({ error: "Failed to generate story" });
   }
 }
 
@@ -473,62 +473,80 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { prompt } = req.body;
-    if (!prompt) {
-      return res.status(400).json({ error: "Prompt is required" });
+    const { prompt, parameterId } = req.body;
+    if (!prompt || !parameterId) {
+      return res
+        .status(400)
+        .json({ error: "Prompt and parameterId are required" });
     }
 
-    let pipelineData = {};
+    console.log("\n=== STARTING STORY GENERATION ===");
+    console.log("User Prompt:", prompt);
+    console.log("Parameter ID:", parameterId);
 
-    try {
-      console.log("Step 1: Fetching world data...");
-      const worldData = await fetchWorldData();
-      pipelineData.worldData = true;
+    // 1. Gather all required data
+    console.log("\nStep 1: Gathering Resources...");
+    const db = await connectToDb();
+    const [storyParameters, characters, locations, archetypes, themes] =
+      await fetchAllResources(db, parameterId);
 
-      console.log("Step 2: Generating multiple story skeletons...");
-      const skeletons = await generateStorySkeletons(prompt, worldData);
-      pipelineData.skeletons = true;
+    console.log("Retrieved:");
+    console.log("- Story Parameters:", storyParameters?.name);
+    console.log("- Characters:", characters.length);
+    console.log("- Locations:", locations.length);
+    console.log("- Archetypes:", archetypes.length);
+    console.log("- Themes:", themes.length);
 
-      console.log("Step 3: Selecting best skeleton...");
-      const selectedSkeletonData = await selectBestSkeleton(prompt, skeletons);
-      pipelineData.selection = true;
+    const resources = {
+      storyParameters,
+      characters,
+      locations,
+      archetypes,
+      themes,
+    };
 
-      console.log("Step 4: Generating final story...");
-      const storyPackage = await generateFinalStory(
-        prompt,
-        selectedSkeletonData,
-        worldData
-      );
-      pipelineData.story = true;
+    // 2. Generate story plan
+    console.log("\nStep 2: Generating Story Plan...");
+    const storyPlan = await generateStoryPlan(prompt, resources);
+    console.log("Story Plan Generated:", {
+      title: storyPlan.title,
+      selectedCharacters: storyPlan.selectedCharacters.map((c) => c.name),
+      selectedLocations: storyPlan.selectedLocations.map((l) => l.name),
+      selectedArchetype: storyPlan.selectedArchetype,
+    });
 
-      res.status(200).json({
-        userPrompt: prompt,
-        generatedSkeletons: skeletons.skeletons,
-        selection: {
-          selectedSkeleton: selectedSkeletonData.skeleton,
-          reasoning: selectedSkeletonData.reasoning,
-          suggestedEnhancements: selectedSkeletonData.suggestedEnhancements,
-        },
-        story: storyPackage,
-      });
-    } catch (error) {
-      console.error("Pipeline step error:", {
-        error,
-        pipelineProgress: pipelineData,
-      });
+    // 3. Generate story skeleton
+    console.log("\nStep 3: Generating Story Skeleton...");
+    const skeleton = await generateStorySkeleton(storyPlan, resources);
+    console.log("Skeleton Generated");
 
-      res.status(500).json({
-        error: "Story generation pipeline failed",
-        details: error.message,
-        step: Object.keys(pipelineData).length + 1,
-        pipelineProgress: pipelineData,
-      });
-    }
+    // 4. Generate final story
+    console.log("\nStep 4: Generating Final Story...");
+    const finalStory = await generateFinalStory(prompt, skeleton, resources);
+
+    console.log("\n=== STORY GENERATION COMPLETE ===");
+    console.log("Story Length:", finalStory.length);
+    console.log("Word Count:", finalStory.split(" ").length);
+
+    res.status(200).json({
+      story: finalStory,
+      debug: {
+        storyPlan,
+        skeleton,
+      },
+    });
   } catch (error) {
-    console.error("Handler error:", error);
+    console.error("\n=== STORY GENERATION ERROR ===");
+    console.error("Error Type:", error.constructor.name);
+    console.error("Error Message:", error.message);
+    console.error("Stack Trace:", error.stack);
+    if (error.response) {
+      console.error("OpenAI Response Error:", error.response.data);
+    }
     res.status(500).json({
-      error: "Request handler failed",
+      error: "Failed to generate story",
       details: error.message,
+      type: error.constructor.name,
     });
   }
 }
