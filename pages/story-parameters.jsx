@@ -1,167 +1,59 @@
-import React from "react";
+import { useState, useEffect } from "react";
 import Layout from "../components/Layout";
 import { DataManager } from "../components/DataManager";
-import { NestedObjectEditor } from "../components/NestedObjectEditor";
+import { StoryParameterEditor } from "../components/editors/StoryParameterEditor";
 
-const parameterStructure = {
-  meta: {
-    type: "object",
-    label: "Meta Information",
-    fields: {
-      title: {
-        type: "string",
-        label: "Title",
-        placeholder: "Enter story title",
-      },
-      length: {
-        type: "string",
-        label: "Length",
-        placeholder: "short/medium/long",
-      },
-      style: {
-        type: "object",
-        label: "Style",
-        fields: {
-          primary: { type: "string", label: "Primary Genre" },
-          tone: { type: "string", label: "Tone" },
-          pacing: { type: "string", label: "Pacing" },
-        },
-      },
-      format: {
-        type: "object",
-        label: "Format",
-        fields: {
-          structure: { type: "string", label: "Structure" },
-          narrative_voice: { type: "string", label: "Narrative Voice" },
-          scene_style: { type: "string", label: "Scene Style" },
-        },
-      },
-    },
-  },
-  cast: {
-    type: "object",
-    label: "Cast",
-    fields: {
-      protagonist: {
-        type: "object",
-        label: "Protagonist",
-        fields: {
-          character: { type: "string", label: "Character" },
-          focus: { type: "string", label: "Focus" },
-          quirk_emphasis: { type: "string", label: "Quirk Emphasis" },
-        },
-      },
-      main_cast: {
-        type: "array",
-        label: "Main Cast",
-        itemType: "object",
-      },
-      supporting_cast: {
-        type: "object",
-        label: "Supporting Cast",
-        fields: {
-          protagonist_side: { type: "array", itemType: "object" },
-          antagonist_side: { type: "array", itemType: "object" },
-          neutral: { type: "array", itemType: "object" },
-        },
-      },
-      antagonist: {
-        type: "object",
-        label: "Antagonist",
-        fields: {
-          character: { type: "string", label: "Character" },
-          type: { type: "string", label: "Type" },
-          resolution: { type: "string", label: "Resolution" },
-        },
-      },
-    },
-  },
-  themes: {
-    type: "object",
-    label: "Themes",
-    fields: {
-      primary_theme: { type: "string", label: "Primary Theme" },
-      secondary_themes: { type: "array", label: "Secondary Themes" },
-      required_archetypes: { type: "array", label: "Required Archetypes" },
-    },
-  },
-  setting: {
-    type: "object",
-    label: "Setting",
-    fields: {
-      primary_location: { type: "string", label: "Primary Location" },
-      secondary_locations: { type: "array", label: "Secondary Locations" },
-      ship_state: { type: "string", label: "Ship State" },
-      time_period: { type: "string", label: "Time Period" },
-    },
-  },
-  plot_elements: {
-    type: "object",
-    label: "Plot Elements",
-    fields: {
-      inciting_incident: { type: "string", label: "Inciting Incident" },
-      complications: { type: "array", label: "Complications" },
-      climax_type: { type: "string", label: "Climax Type" },
-      resolution_style: { type: "string", label: "Resolution Style" },
-    },
-  },
-  special_requirements: {
-    type: "object",
-    label: "Special Requirements",
-    fields: {
-      callbacks: { type: "array", label: "Callbacks" },
-      running_gags: { type: "array", label: "Running Gags" },
-      required_props: { type: "array", label: "Required Props" },
-      setup_elements: { type: "array", label: "Setup Elements" },
-    },
-  },
-  generation_flags: {
-    type: "object",
-    label: "Generation Flags",
-    fields: {
-      emphasis_on: { type: "array", label: "Emphasis On" },
-      avoid: { type: "array", label: "Avoid" },
-      maintain_continuity: { type: "array", label: "Maintain Continuity" },
-      break_fourth_wall: { type: "string", label: "Break Fourth Wall" },
-    },
-  },
+const PARAMETER_TEMPLATE = {
+  NAME: "",
+  GENRE: "",
+  LENGTH: "",
+  TONE: "",
+  NARRATIVE_STYLE: "",
+  PROTAGONIST: "",
+  PROTAGONIST_GOAL: "",
+  DEUTERAGONIST: "",
+  ANTAGONIST: "",
+  ALLIES: "",
+  OBSTACLES: "",
+  WILD_CARD: "",
+  MAIN_CONFLICT: "",
+  COMPLICATIONS: "",
+  RESOLUTION_TYPE: "",
+  PACING: "",
+  TONE_REQUIREMENTS: "",
+  NARRATIVE_FOCUS: "",
+  RUNNING_GAGS: "",
+  KEY_DYNAMICS: "",
 };
 
-const storyParameterFields = [
+const parameterFields = [
   {
     name: "name",
-    label: "Parameter Set Name",
-    type: "text",
+    type: "string",
+    label: "Name",
     required: true,
     preview: true,
-    defaultValue: "",
   },
   {
-    name: "description",
-    label: "Description",
-    type: "text",
+    name: "genre",
+    type: "string",
+    label: "Genre",
     required: true,
     preview: true,
-    defaultValue: "",
   },
   {
-    name: "story_parameters",
-    label: "Story Parameters",
+    name: "parameters",
     type: "custom",
-    component: NestedObjectEditor,
+    component: StoryParameterEditor,
+    label: "Parameters",
     required: true,
-    preview: false,
-    defaultValue: {},
-    componentProps: {
-      structure: parameterStructure,
-    },
   },
 ];
 
 const StoryParameters = () => {
   const fetchParameters = async () => {
     const response = await fetch("/api/story-parameters");
-    if (!response.ok) throw new Error("Failed to fetch story parameters");
+    if (!response.ok) throw new Error("Failed to fetch parameters");
     return response.json();
   };
 
@@ -171,7 +63,7 @@ const StoryParameters = () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
-    if (!response.ok) throw new Error("Failed to create story parameters");
+    if (!response.ok) throw new Error("Failed to create parameter");
     return response.json();
   };
 
@@ -181,7 +73,7 @@ const StoryParameters = () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
-    if (!response.ok) throw new Error("Failed to update story parameters");
+    if (!response.ok) throw new Error("Failed to update parameter");
     return response.json();
   };
 
@@ -189,7 +81,7 @@ const StoryParameters = () => {
     const response = await fetch(`/api/story-parameters/${id}`, {
       method: "DELETE",
     });
-    if (!response.ok) throw new Error("Failed to delete story parameters");
+    if (!response.ok) throw new Error("Failed to delete parameter");
     return response.json();
   };
 
@@ -198,11 +90,21 @@ const StoryParameters = () => {
       <DataManager
         title="Story Parameters"
         entityType="story parameter"
-        fields={storyParameterFields}
+        fields={parameterFields}
         fetchData={fetchParameters}
         createRecord={createParameter}
         updateRecord={updateParameter}
         deleteRecord={deleteParameter}
+        renderListItem={(param) => (
+          <div className="story-card">
+            <div className="story-header">
+              <span className="story-title">{param.name || "(unnamed)"}</span>
+              <span className="story-preview">
+                {param.genre || "(no genre yet)"}
+              </span>
+            </div>
+          </div>
+        )}
       />
     </Layout>
   );

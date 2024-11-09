@@ -85,6 +85,7 @@ export const EditModal = ({
             type="text"
             value={formData[field.name] || ""}
             onChange={(e) => handleChange(field.name, e.target.value)}
+            className="w-full p-2 border rounded"
           />
         );
     }
@@ -123,8 +124,13 @@ export const EditModal = ({
             }}
           >
             {fields.map((field) => (
-              <div key={field.name} className="form-group">
-                <label>{field.label}</label>
+              <div
+                key={field.name}
+                className={`form-group ${field.className || ""}`}
+              >
+                <label className="block font-medium text-gray-700 mb-2">
+                  {field.label}
+                </label>
                 {renderField(field)}
                 {field.example && (
                   <div className="example">
@@ -227,8 +233,7 @@ export const EditModal = ({
           font-weight: 500;
           color: #495057;
         }
-        .form-group input,
-        .form-group textarea {
+        .form-group input {
           width: 100%;
           padding: 0.5rem;
           border: 1px solid #ddd;
