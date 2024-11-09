@@ -8,11 +8,18 @@ const Stories = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedStory, setGeneratedStory] = useState(null);
   const [error, setError] = useState(null);
+  const [savedStories, setSavedStories] = useState([]);
 
-  // Fetch story parameters on mount
+  // Fetch story parameters and saved stories on mount
   useEffect(() => {
     fetchStoryParameters();
+    loadSavedStories();
   }, []);
+
+  const loadSavedStories = () => {
+    const stories = JSON.parse(localStorage.getItem("stories") || "[]");
+    setSavedStories(stories);
+  };
 
   const fetchStoryParameters = async () => {
     try {
@@ -60,10 +67,9 @@ const Stories = () => {
         parameters: selectedParameters.name,
       };
 
-      const savedStories = JSON.parse(localStorage.getItem("stories") || "[]");
-      savedStories.unshift(storyData);
-      localStorage.setItem("stories", JSON.stringify(savedStories));
-
+      const updatedStories = [storyData, ...savedStories];
+      localStorage.setItem("stories", JSON.stringify(updatedStories));
+      setSavedStories(updatedStories);
       setGeneratedStory(data.story);
     } catch (error) {
       setError(error.message);
@@ -71,6 +77,16 @@ const Stories = () => {
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
   return (
@@ -124,6 +140,34 @@ const Stories = () => {
             <div className="story-content">
               {generatedStory.split("\n").map((paragraph, index) => (
                 <p key={index}>{paragraph}</p>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {savedStories.length > 0 && (
+          <section className="saved-stories-section">
+            <h2>Previously Generated Stories</h2>
+            <div className="stories-list">
+              {savedStories.map((story, index) => (
+                <div key={index} className="story-card">
+                  <div className="story-header">
+                    <span className="story-date">
+                      {formatDate(story.timestamp)}
+                    </span>
+                    <span className="story-params">{story.parameters}</span>
+                  </div>
+                  <div className="story-prompt">{story.prompt}</div>
+                  <div className="story-preview">
+                    {story.text.slice(0, 200)}...
+                    <button
+                      className="read-more"
+                      onClick={() => setGeneratedStory(story.text)}
+                    >
+                      Read Full Story
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
           </section>
@@ -186,6 +230,52 @@ const Stories = () => {
           }
           .story-content p {
             margin-bottom: 1rem;
+          }
+          .saved-stories-section {
+            margin-top: 3rem;
+          }
+          .stories-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            margin-top: 1rem;
+          }
+          .story-card {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+          }
+          .story-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            color: #666;
+          }
+          .story-prompt {
+            font-weight: 500;
+            margin-bottom: 1rem;
+            color: #333;
+          }
+          .story-preview {
+            color: #666;
+            font-size: 0.95rem;
+            line-height: 1.5;
+          }
+          .read-more {
+            display: block;
+            background: none;
+            border: none;
+            color: #0070f3;
+            padding: 0.5rem 0;
+            margin-top: 0.5rem;
+            cursor: pointer;
+            font-size: 0.9rem;
+          }
+          .read-more:hover {
+            text-decoration: underline;
           }
         `}</style>
       </div>
