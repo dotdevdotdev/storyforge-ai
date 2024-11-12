@@ -8,18 +8,11 @@ const Stories = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedStory, setGeneratedStory] = useState(null);
   const [error, setError] = useState(null);
-  const [savedStories, setSavedStories] = useState([]);
 
-  // Fetch story parameters and saved stories on mount
+  // Fetch story parameters on mount
   useEffect(() => {
     fetchStoryParameters();
-    loadSavedStories();
   }, []);
-
-  const loadSavedStories = () => {
-    const stories = JSON.parse(localStorage.getItem("stories") || "[]");
-    setSavedStories(stories);
-  };
 
   const fetchStoryParameters = async () => {
     try {
@@ -49,7 +42,7 @@ const Stories = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt: userPrompt,
-          parameterId: selectedParameters._id,
+          parameters: selectedParameters,
         }),
       });
 
@@ -58,19 +51,21 @@ const Stories = () => {
       }
 
       const data = await response.json();
+      setGeneratedStory(data.story);
 
       // Store story in localStorage
       const storyData = {
         text: data.story,
         prompt: userPrompt,
+        parameters: selectedParameters,
         timestamp: new Date().toISOString(),
-        parameters: selectedParameters.name,
       };
 
-      const updatedStories = [storyData, ...savedStories];
-      localStorage.setItem("stories", JSON.stringify(updatedStories));
-      setSavedStories(updatedStories);
-      setGeneratedStory(data.story);
+      const savedStories = JSON.parse(localStorage.getItem("stories") || "[]");
+      localStorage.setItem(
+        "stories",
+        JSON.stringify([storyData, ...savedStories])
+      );
     } catch (error) {
       setError(error.message);
       console.error("Story generation error:", error);
@@ -79,24 +74,15 @@ const Stories = () => {
     }
   };
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
   return (
     <Layout>
-      <div className="stories-container">
-        <section className="story-input-section">
-          <h1>Generate a New Story</h1>
+      <div className="container mx-auto p-4">
+        <h1 className="text-2xl font-bold mb-4">Generate Story</h1>
 
-          <div className="parameters-select">
-            <label>Story Parameters</label>
+        <form onSubmit={handleGenerateStory}>
+          {/* Story Parameters Selection */}
+          <div className="mb-4">
+            <label className="block mb-2">Story Parameters</label>
             <select
               value={selectedParameters?._id || ""}
               onChange={(e) => {
@@ -105,179 +91,48 @@ const Stories = () => {
                 );
                 setSelectedParameters(selected);
               }}
+              className="w-full p-2 border rounded"
             >
-              <option value="">Select story parameters...</option>
+              <option value="">Select parameters...</option>
               {storyParameters.map((param) => (
                 <option key={param._id} value={param._id}>
-                  {param.name}
+                  {param.name} - {param.genre}
                 </option>
               ))}
             </select>
           </div>
 
-          <div className="prompt-section">
-            <label>Your Story Prompt</label>
+          {/* User Prompt Input */}
+          <div className="mb-4">
+            <label className="block mb-2">Additional Prompt (optional)</label>
             <textarea
               value={userPrompt}
               onChange={(e) => setUserPrompt(e.target.value)}
-              placeholder="Describe your story idea..."
+              className="w-full p-2 border rounded"
+              rows={3}
+              placeholder="Add any specific details or requirements..."
             />
           </div>
 
           <button
-            onClick={handleGenerateStory}
-            disabled={isGenerating || !selectedParameters}
+            type="submit"
+            disabled={isGenerating}
+            className="bg-blue-500 text-white px-4 py-2 rounded"
           >
-            {isGenerating ? "Generating Story..." : "Generate Story"}
+            {isGenerating ? "Generating..." : "Generate Story"}
           </button>
+        </form>
 
-          {error && <div className="error-message">{error}</div>}
-        </section>
+        {error && <div className="text-red-500 mt-4">{error}</div>}
 
         {generatedStory && (
-          <section className="generated-story-section">
-            <h2>Your Generated Story</h2>
-            <div className="story-content">
-              {generatedStory.split("\n").map((paragraph, index) => (
-                <p key={index}>{paragraph}</p>
-              ))}
+          <div className="mt-8">
+            <h2 className="text-xl font-bold mb-2">Generated Story</h2>
+            <div className="whitespace-pre-wrap border p-4 rounded">
+              {generatedStory}
             </div>
-          </section>
+          </div>
         )}
-
-        {savedStories.length > 0 && (
-          <section className="saved-stories-section">
-            <h2>Previously Generated Stories</h2>
-            <div className="stories-list">
-              {savedStories.map((story, index) => (
-                <div key={index} className="story-card">
-                  <div className="story-header">
-                    <span className="story-date">
-                      {formatDate(story.timestamp)}
-                    </span>
-                    <span className="story-params">{story.parameters}</span>
-                  </div>
-                  <div className="story-prompt">{story.prompt}</div>
-                  <div className="story-preview">
-                    {story.text.slice(0, 200)}...
-                    <button
-                      className="read-more"
-                      onClick={() => setGeneratedStory(story.text)}
-                    >
-                      Read Full Story
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        <style jsx>{`
-          .stories-container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 2rem;
-          }
-          .story-input-section {
-            margin-bottom: 2rem;
-          }
-          .parameters-select,
-          .prompt-section {
-            margin-bottom: 1.5rem;
-          }
-          label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 500;
-          }
-          select,
-          textarea {
-            width: 100%;
-            padding: 0.5rem;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-          }
-          textarea {
-            min-height: 100px;
-            resize: vertical;
-          }
-          button {
-            background: #0070f3;
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 4px;
-            cursor: pointer;
-          }
-          button:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-          }
-          .error-message {
-            color: red;
-            margin-top: 1rem;
-          }
-          .generated-story-section {
-            margin-top: 2rem;
-            padding: 2rem;
-            background: #f8f9fa;
-            border-radius: 8px;
-          }
-          .story-content {
-            white-space: pre-wrap;
-            line-height: 1.6;
-          }
-          .story-content p {
-            margin-bottom: 1rem;
-          }
-          .saved-stories-section {
-            margin-top: 3rem;
-          }
-          .stories-list {
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
-            margin-top: 1rem;
-          }
-          .story-card {
-            background: white;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 1.5rem;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-          }
-          .story-header {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 0.5rem;
-            font-size: 0.9rem;
-            color: #666;
-          }
-          .story-prompt {
-            font-weight: 500;
-            margin-bottom: 1rem;
-            color: #333;
-          }
-          .story-preview {
-            color: #666;
-            font-size: 0.95rem;
-            line-height: 1.5;
-          }
-          .read-more {
-            display: block;
-            background: none;
-            border: none;
-            color: #0070f3;
-            padding: 0.5rem 0;
-            margin-top: 0.5rem;
-            cursor: pointer;
-            font-size: 0.9rem;
-          }
-          .read-more:hover {
-            text-decoration: underline;
-          }
-        `}</style>
       </div>
     </Layout>
   );
