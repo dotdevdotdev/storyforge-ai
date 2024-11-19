@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { JsonModal } from "./modals/JsonModal";
 import { EditModal } from "./modals/EditModal";
+import { DataBoundary, APIBoundary } from "./ErrorBoundaryWrapper";
 
 const formatPreviewValue = (value, field) => {
   if (field.type === "json") {
@@ -15,7 +16,7 @@ const formatPreviewValue = (value, field) => {
   return value;
 };
 
-export const DataManager = ({
+const DataManager = ({
   title,
   entityType,
   fields,
@@ -274,3 +275,14 @@ export const DataManager = ({
     </div>
   );
 };
+
+// Wrap DataManager with error boundaries
+const DataManagerWithErrorBoundaries = (props) => (
+  <DataBoundary>
+    <APIBoundary>
+      <DataManager {...props} />
+    </APIBoundary>
+  </DataBoundary>
+);
+
+export default DataManagerWithErrorBoundaries;

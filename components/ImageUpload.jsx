@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { IKContext, IKUpload } from "imagekitio-react";
+import { ImageProcessingBoundary, APIBoundary } from "./ErrorBoundaryWrapper";
 
-const ImageUpload = ({ onSuccess, onError, existingUrl }) => {
+const ImageUpload = ({ onSuccess, onError, existingUrl, onRetry }) => {
   const [authParams, setAuthParams] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -133,4 +134,12 @@ const ImageUpload = ({ onSuccess, onError, existingUrl }) => {
   );
 };
 
-export default ImageUpload;
+const ImageUploadWithErrorBoundaries = (props) => (
+  <ImageProcessingBoundary onRetry={props.onRetry}>
+    <APIBoundary onRetry={props.onRetry}>
+      <ImageUpload {...props} />
+    </APIBoundary>
+  </ImageProcessingBoundary>
+);
+
+export default ImageUploadWithErrorBoundaries;

@@ -1,6 +1,6 @@
 import React from "react";
 import Layout from "../components/Layout";
-import { DataManager } from "../components/DataManager";
+import DataManager from "../components/DataManager";
 import { NestedArrayEditor } from "../components/NestedArrayEditor";
 import { ObjectArrayEditor } from "../components/ObjectArrayEditor";
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import Layout from "../components/Layout";
-import { DataManager } from "../components/DataManager";
+import DataManager from "../components/DataManager";
 import { StoryParameterEditor } from "../components/editors/StoryParameterEditor";
 
 const PARAMETER_TEMPLATE = {

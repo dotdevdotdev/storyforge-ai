@@ -1,6 +1,6 @@
 import React from "react";
 import Layout from "../components/Layout";
-import { DataManager } from "../components/DataManager";
+import DataManagerWithErrorBoundaries from "../components/DataManager";
 
 const themeFields = [
   {
@@ -122,7 +122,7 @@ const Themes = () => {
 
   return (
     <Layout>
-      <DataManager
+      <DataManagerWithErrorBoundaries
         title="Themes"
         entityType="theme"
         fields={themeFields}
