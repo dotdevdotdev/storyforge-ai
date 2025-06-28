@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../components/Layout";
 import { StoryGenerationBoundary, APIBoundary } from "../components/ErrorBoundaryWrapper";
-import LoadingSpinner from "../components/LoadingSpinner";
+import { Button, Textarea, Select, Card, LoadingSpinner, PageHeader } from "../components/ui";
 import StoryGenerationProgress from "../components/StoryGenerationProgress";
 
 const Stories = () => {
@@ -13,11 +13,10 @@ const Stories = () => {
   const [generatedStory, setGeneratedStory] = useState(null);
   const [error, setError] = useState(null);
   const [isLoadingParams, setIsLoadingParams] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
   const [savedStories, setSavedStories] = useState([]);
   const [isLoadingStories, setIsLoadingStories] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
-  // Fetch story parameters and saved stories on mount
   useEffect(() => {
     fetchStoryParameters();
     fetchSavedStories();
@@ -25,14 +24,13 @@ const Stories = () => {
 
   const fetchStoryParameters = async () => {
     try {
-      setIsLoadingParams(true);
       const response = await fetch("/api/story-parameters");
-      if (!response.ok) throw new Error("Failed to fetch story parameters");
-      const data = await response.json();
-      setStoryParameters(data);
+      if (response.ok) {
+        const data = await response.json();
+        setStoryParameters(data);
+      }
     } catch (error) {
-      setError("Failed to load story parameters");
-      console.error(error);
+      console.error("Error fetching story parameters:", error);
     } finally {
       setIsLoadingParams(false);
     }
@@ -40,13 +38,13 @@ const Stories = () => {
 
   const fetchSavedStories = async () => {
     try {
-      setIsLoadingStories(true);
-      const response = await fetch("/api/stories/list?includeUnpublished=true");
-      if (!response.ok) throw new Error("Failed to fetch saved stories");
-      const data = await response.json();
-      setSavedStories(data);
+      const response = await fetch("/api/stories/list");
+      if (response.ok) {
+        const data = await response.json();
+        setSavedStories(data);
+      }
     } catch (error) {
-      console.error("Failed to load saved stories:", error);
+      console.error("Error fetching saved stories:", error);
     } finally {
       setIsLoadingStories(false);
     }
@@ -54,110 +52,62 @@ const Stories = () => {
 
   const handleGenerateStory = async (e) => {
     e.preventDefault();
-    if (!selectedParameters) {
-      setError("Please select story parameters");
-      return;
-    }
+    if (!selectedParameters) return;
 
     setIsGenerating(true);
-    setError(null);
     setGeneratedStory(null);
+    setError(null);
+    setGenerationStage("Analyzing story parameters...");
 
     try {
-      // Start the generation process
-      setGenerationStage('analyzing');
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      setGenerationStage('planning');
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      setGenerationStage('writing');
       const response = await fetch("/api/generate-story", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          prompt: userPrompt,
           parameters: selectedParameters,
+          userPrompt: userPrompt,
         }),
       });
 
-      if (!response.ok) {
-        throw new Error("Story generation failed");
+      if (response.ok) {
+        const data = await response.json();
+        setGeneratedStory(data.story);
+        setGenerationStage(null);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || "Failed to generate story");
       }
-
-      setGenerationStage('refining');
-      const data = await response.json();
-      
-      // Save story draft automatically
-      await saveDraft(data.story);
-
-      // Short delay to show the refining stage
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setGeneratedStory(data.story);
     } catch (error) {
-      setError(error.message);
-      console.error("Story generation error:", error);
+      setError("Network error occurred while generating story");
     } finally {
       setIsGenerating(false);
-      setGenerationStage(null);
-    }
-  };
-
-  const saveDraft = async (storyText) => {
-    try {
-      setIsSaving(true);
-      const response = await fetch("/api/stories/draft", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          content: storyText,
-          prompt: userPrompt,
-          parameters: selectedParameters,
-          metadata: {
-            title: `Draft - ${new Date().toLocaleString()}`,
-            status: 'draft'
-          }
-        }),
-      });
-
-      if (!response.ok) throw new Error("Failed to save draft");
-      
-      // Refresh saved stories list
-      fetchSavedStories();
-    } catch (error) {
-      console.error("Failed to save draft:", error);
-      setError("Failed to save draft. Don't worry, your story is still here!");
-    } finally {
-      setIsSaving(false);
     }
   };
 
   const saveStory = async () => {
     if (!generatedStory) return;
 
+    setIsSaving(true);
     try {
-      setIsSaving(true);
       const response = await fetch("/api/stories/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           content: generatedStory,
-          prompt: userPrompt,
           parameters: selectedParameters,
-          metadata: {
-            title: `Story - ${new Date().toLocaleString()}`,
-            status: 'published'
-          }
+          userPrompt: userPrompt,
         }),
       });
 
-      if (!response.ok) throw new Error("Failed to save story");
-
-      // Refresh saved stories list
-      fetchSavedStories();
+      if (response.ok) {
+        const savedStory = await response.json();
+        setSavedStories([savedStory, ...savedStories]);
+        setError(null);
+      } else {
+        setError("Failed to save story");
+      }
     } catch (error) {
-      console.error("Failed to save story:", error);
-      setError("Failed to save story");
+      setError("Network error occurred while saving story");
     } finally {
       setIsSaving(false);
     }
@@ -165,143 +115,132 @@ const Stories = () => {
 
   return (
     <Layout>
-      <div className="container mx-auto p-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Story Generation Form */}
-          <div className="md:col-span-2">
-            <h1 className="text-2xl font-bold mb-4">Generate Story</h1>
+      <PageHeader 
+        title="Story Generator"
+        subtitle="Create amazing stories with AI assistance"
+      />
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Story Generation Form */}
+        <div className="lg:col-span-2">
+          <Card>
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Generate New Story</h2>
 
             <form onSubmit={handleGenerateStory} className="space-y-6">
               {/* Story Parameters Selection */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Story Parameters
-                </label>
-                {isLoadingParams ? (
-                  <LoadingSpinner message="Loading story parameters..." />
-                ) : (
-                  <select
-                    value={selectedParameters?._id || ""}
-                    onChange={(e) => {
-                      const selected = storyParameters.find(
-                        (p) => p._id === e.target.value
-                      );
-                      setSelectedParameters(selected);
-                    }}
-                    className="w-full p-2 border rounded shadow-sm focus:ring-primary focus:border-primary"
-                  >
-                    <option value="">Select parameters...</option>
-                    {storyParameters.map((param) => (
-                      <option key={param._id} value={param._id}>
-                        {param.name} - {param.genre}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
+              {isLoadingParams ? (
+                <LoadingSpinner text="Loading story parameters..." />
+              ) : (
+                <Select
+                  label="Story Parameters"
+                  value={selectedParameters?._id || ""}
+                  onChange={(e) => {
+                    const selected = storyParameters.find(
+                      (p) => p._id === e.target.value
+                    );
+                    setSelectedParameters(selected);
+                  }}
+                  required
+                  options={[
+                    { value: "", label: "Select parameters..." },
+                    ...storyParameters.map((params) => ({
+                      value: params._id,
+                      label: `${params.name} - ${params.genre}`
+                    }))
+                  ]}
+                />
+              )}
 
               {/* User Prompt */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Additional Story Prompt (Optional)
-                </label>
-                <textarea
-                  value={userPrompt}
-                  onChange={(e) => setUserPrompt(e.target.value)}
-                  className="w-full p-2 border rounded shadow-sm focus:ring-primary focus:border-primary"
-                  rows="4"
-                  placeholder="Add any specific details or requirements for your story..."
-                />
-              </div>
+              <Textarea
+                label="Additional Story Prompt (Optional)"
+                value={userPrompt}
+                onChange={(e) => setUserPrompt(e.target.value)}
+                rows={4}
+                helperText="Add any specific details or requirements for your story..."
+              />
 
               {/* Generate Button */}
-              <button
+              <Button
                 type="submit"
-                disabled={isGenerating || !selectedParameters}
-                className={`w-full py-2 px-4 rounded font-medium ${
-                  isGenerating || !selectedParameters
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-primary hover:bg-primary-dark"
-                } text-white transition-colors`}
+                variant="primary"
+                disabled={!selectedParameters || isGenerating}
+                className="w-full"
               >
                 {isGenerating ? "Generating..." : "Generate Story"}
-              </button>
+              </Button>
             </form>
 
-            {/* Error Display */}
-            {error && (
-              <div className="mt-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
-                {error}
-              </div>
-            )}
-
             {/* Generation Progress */}
-            {isGenerating && generationStage && (
-              <div className="mt-8">
+            {isGenerating && (
+              <div className="mt-6">
                 <StoryGenerationProgress stage={generationStage} />
               </div>
             )}
 
-            {/* Generated Story Display */}
-            {generatedStory && (
-              <div className="mt-8 p-6 bg-white rounded-lg shadow-lg">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-semibold">Your Generated Story</h2>
-                  <button
-                    onClick={saveStory}
-                    disabled={isSaving}
-                    className={`px-4 py-2 rounded ${
-                      isSaving
-                        ? "bg-gray-400 cursor-not-allowed"
-                        : "bg-green-600 hover:bg-green-700"
-                    } text-white transition-colors`}
-                  >
-                    {isSaving ? "Saving..." : "Save Story"}
-                  </button>
-                </div>
-                <div className="prose max-w-none">
-                  {generatedStory.split('\n').map((paragraph, index) => (
-                    paragraph ? <p key={index} className="mb-4">{paragraph}</p> : null
-                  ))}
-                </div>
+            {/* Error Display */}
+            {error && (
+              <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-red-800">{error}</p>
               </div>
             )}
-          </div>
+          </Card>
 
-          {/* Saved Stories Sidebar */}
-          <div className="bg-white rounded-lg shadow-lg p-4">
-            <h2 className="text-xl font-semibold mb-4">Your Stories</h2>
+          {/* Generated Story Display */}
+          {generatedStory && (
+            <Card className="mt-8">
+              <div className="flex justify-between items-start mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">Generated Story</h2>
+                <Button
+                  onClick={saveStory}
+                  disabled={isSaving}
+                  variant="outline"
+                >
+                  {isSaving ? "Saving..." : "Save Story"}
+                </Button>
+              </div>
+              
+              <div className="prose max-w-none">
+                <div className="whitespace-pre-wrap text-gray-800 leading-relaxed">
+                  {generatedStory}
+                </div>
+              </div>
+            </Card>
+          )}
+        </div>
+
+        {/* Saved Stories Sidebar */}
+        <div className="lg:col-span-1">
+          <Card>
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Your Stories</h2>
             {isLoadingStories ? (
-              <LoadingSpinner message="Loading your stories..." />
+              <LoadingSpinner text="Loading your stories..." />
             ) : savedStories.length > 0 ? (
-              <div className="space-y-4">
-                {savedStories.map((story) => (
+              <div className="space-y-3">
+                {savedStories.map((story, index) => (
                   <div
-                    key={story._id}
-                    className="p-4 border rounded hover:bg-gray-50 transition-colors cursor-pointer"
+                    key={story._id || index}
+                    className="p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
                   >
-                    <h3 className="font-medium">{story.metadata?.title || 'Untitled Story'}</h3>
-                    <p className="text-sm text-gray-600">
+                    <h3 className="font-medium text-sm text-gray-900 mb-1">
+                      {story.title || `Story ${index + 1}`}
+                    </h3>
+                    <p className="text-xs text-gray-500">
                       {new Date(story.createdAt).toLocaleDateString()}
                     </p>
-                    <div className="mt-2 text-xs text-gray-500">
-                      {story.metadata?.status === 'draft' ? (
-                        <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
-                          Draft
-                        </span>
-                      ) : (
-                        <span className="bg-green-100 text-green-800 px-2 py-1 rounded">
-                          Saved
-                        </span>
-                      )}
-                    </div>
+                    <p className="text-xs text-gray-600 mt-2 line-clamp-3">
+                      {story.content?.substring(0, 100)}...
+                    </p>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-gray-500">No stories saved yet</p>
+              <div className="text-center py-8">
+                <p className="text-gray-500">No stories saved yet</p>
+                <p className="text-gray-400 text-sm mt-1">Generated stories will appear here</p>
+              </div>
             )}
-          </div>
+          </Card>
         </div>
       </div>
     </Layout>
@@ -310,13 +249,11 @@ const Stories = () => {
 
 // Wrap the Stories component with error boundaries
 const StoriesWithErrorBoundaries = () => (
-  <Layout>
-    <StoryGenerationBoundary>
-      <APIBoundary>
-        <Stories />
-      </APIBoundary>
-    </StoryGenerationBoundary>
-  </Layout>
+  <StoryGenerationBoundary>
+    <APIBoundary>
+      <Stories />
+    </APIBoundary>
+  </StoryGenerationBoundary>
 );
 
 export default StoriesWithErrorBoundaries;

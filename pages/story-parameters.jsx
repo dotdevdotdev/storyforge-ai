@@ -95,16 +95,6 @@ const StoryParameters = () => {
         createRecord={createParameter}
         updateRecord={updateParameter}
         deleteRecord={deleteParameter}
-        renderListItem={(param) => (
-          <div className="story-card">
-            <div className="story-header">
-              <span className="story-title">{param.name || "(unnamed)"}</span>
-              <span className="story-preview">
-                {param.genre || "(no genre yet)"}
-              </span>
-            </div>
-          </div>
-        )}
       />
     </Layout>
   );

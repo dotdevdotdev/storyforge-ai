@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { JsonModal } from "./modals/JsonModal";
 import { EditModal } from "./modals/EditModal";
 import { DataBoundary, APIBoundary } from "./ErrorBoundaryWrapper";
+import { Button, Card, LoadingSpinner, PageHeader } from "./ui";
 
 const formatPreviewValue = (value, field) => {
   if (field.type === "json") {
@@ -93,71 +94,101 @@ const DataManager = ({
   };
 
   return (
-    <div className="data-manager">
-      <div className="header">
-        <div className="title-section">
-          <h1>{title}</h1>
-          <div className="modal-controls">
-            <button
-              className={`modal-control ${showEditModal ? "active" : ""}`}
-              onClick={() => {
-                setShowEditModal(true);
-                setShowJsonModal(false);
-              }}
-            >
-              Add New
-            </button>
-            <button
-              className={`modal-control ${showJsonModal ? "active" : ""}`}
-              onClick={() => {
-                setShowJsonModal(true);
-                setShowEditModal(false);
-              }}
-            >
-              Import JSON
-            </button>
-          </div>
+    <div>
+      <PageHeader 
+        title={title}
+        subtitle={`Create and manage ${entityType}s for your stories`}
+      />
+
+      {/* Action Buttons */}
+      <Card className="mb-8">
+        <div className="flex flex-wrap gap-4">
+          <Button
+            variant={showEditModal ? "primary" : "outline"}
+            onClick={() => {
+              setShowEditModal(true);
+              setShowJsonModal(false);
+            }}
+          >
+            Add New {entityType.charAt(0).toUpperCase() + entityType.slice(1)}
+          </Button>
+          <Button
+            variant={showJsonModal ? "primary" : "outline"}
+            onClick={() => {
+              setShowJsonModal(true);
+              setShowEditModal(false);
+            }}
+          >
+            Import JSON
+          </Button>
         </div>
-      </div>
+      </Card>
 
-      {error && <div className="error">{error}</div>}
+      {/* Error Display */}
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md">
+          <p className="text-red-800">{error}</p>
+        </div>
+      )}
 
+      {/* Content */}
       {loading ? (
-        <div className="loading">Loading...</div>
+        <Card className="text-center py-12">
+          <LoadingSpinner text={`Loading ${entityType}s...`} size="lg" />
+        </Card>
+      ) : records.length === 0 ? (
+        <Card className="text-center py-12">
+          <p className="text-gray-500 text-lg">No {entityType}s created yet.</p>
+          <p className="text-gray-400 mt-2">Create your first {entityType} using the button above.</p>
+        </Card>
       ) : (
-        <div className="records-grid">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {records.map((record) => (
-            <div
+            <Card
               key={record._id}
-              className="record-card"
               onClick={() => {
                 setSelectedRecord(record);
                 setShowEditModal(true);
               }}
+              hoverable
+              className="cursor-pointer relative group"
             >
-              <h3>{record.name}</h3>
-              <p className="description">{record.description}</p>
-              {fields.map(
-                (field) =>
-                  field.preview &&
-                  field.name !== "name" &&
-                  field.name !== "description" && (
-                    <div key={field.name} className="preview-field">
-                      <strong>{field.label}:</strong>{" "}
-                      {formatPreviewValue(record[field.name], field)}
-                    </div>
-                  )
-              )}
-              <button
-                className="delete-btn"
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                {record.name}
+              </h3>
+              
+              <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+                {record.description || "No description available."}
+              </p>
+
+              {/* Preview Fields */}
+              <div className="space-y-2 mb-4">
+                {fields.map(
+                  (field) =>
+                    field.preview &&
+                    field.name !== "name" &&
+                    field.name !== "description" && (
+                      <div key={field.name} className="text-xs text-gray-500">
+                        <span className="font-medium">{field.label}:</span>{" "}
+                        <span>{formatPreviewValue(record[field.name], field)}</span>
+                      </div>
+                    )
+                )}
+              </div>
+
+              {/* Delete Button */}
+              <Button
+                variant="danger"
+                size="sm"
+                className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity"
                 onClick={(e) => {
                   e.stopPropagation();
                   handleDelete(record._id);
                 }}
               >
-                Delete
-              </button>
-            </div>
+                ×
+              </Button>
+            </Card>
           ))}
         </div>
       )}
@@ -181,97 +212,6 @@ const DataManager = ({
         entityType={entityType}
         fields={fields}
       />
-
-      <style jsx>{`
-        .data-manager {
-          padding: 2rem;
-        }
-        .header {
-          margin-bottom: 2rem;
-          border-bottom: 1px solid #eee;
-          padding-bottom: 1rem;
-        }
-        .title-section {
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-        }
-        .title-section h1 {
-          margin: 0;
-        }
-        .modal-controls {
-          display: flex;
-          gap: 1rem;
-        }
-        .modal-control {
-          padding: 0.5rem 1rem;
-          border: 2px solid #0070f3;
-          border-radius: 4px;
-          background: white;
-          color: #0070f3;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-        .modal-control:hover {
-          background: #f0f7ff;
-        }
-        .modal-control.active {
-          background: #0070f3;
-          color: white;
-        }
-        .records-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-          gap: 1rem;
-        }
-        .record-card {
-          border: 1px solid #ddd;
-          padding: 1.5rem;
-          border-radius: 8px;
-          cursor: pointer;
-          transition: all 0.2s;
-          background: white;
-        }
-        .record-card:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-        .record-card h3 {
-          margin: 0 0 0.5rem 0;
-          color: #333;
-        }
-        .description {
-          color: #666;
-          margin-bottom: 1rem;
-          font-size: 0.9em;
-        }
-        .preview-field {
-          font-size: 0.9em;
-          margin: 0.25rem 0;
-        }
-        .delete-btn {
-          margin-top: 1rem;
-          padding: 0.5rem 1rem;
-          background: #ff4444;
-          color: white;
-          border: none;
-          border-radius: 4px;
-          cursor: pointer;
-          opacity: 0;
-          transition: opacity 0.2s;
-        }
-        .record-card:hover .delete-btn {
-          opacity: 1;
-        }
-        .error {
-          color: red;
-          margin-bottom: 1rem;
-        }
-        .loading {
-          text-align: center;
-          padding: 2rem;
-        }
-      `}</style>
     </div>
   );
 };

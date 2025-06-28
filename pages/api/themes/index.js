@@ -1,19 +1,9 @@
-import { MongoClient } from "mongodb";
-
-const uri = process.env.MONGODB_URI;
-const dbName = process.env.MONGODB_DB;
+import { connectToDatabase } from "../../../lib/database";
 
 export default async function handler(req, res) {
-  if (!uri || !dbName) {
-    console.error("MongoDB configuration missing");
-    return res.status(500).json({ error: "MongoDB configuration missing" });
-  }
-
-  let client;
   try {
-    client = await MongoClient.connect(uri);
-    const db = client.db(dbName);
-    const collection = db.collection("Themes");
+    const { db, getObjectId, isUsingMock } = await connectToDatabase();
+    const collection = db.collection("themes");
 
     if (req.method === "POST") {
       const themeData = {
@@ -32,13 +22,9 @@ export default async function handler(req, res) {
       res.status(405).json({ message: "Method not allowed" });
     }
   } catch (error) {
-    console.error("MongoDB operation failed:", error);
+    console.error("Database operation failed:", error);
     res
       .status(500)
       .json({ message: "Internal server error", error: error.message });
-  } finally {
-    if (client) {
-      await client.close();
-    }
   }
 }
