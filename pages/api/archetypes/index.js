@@ -1,9 +1,11 @@
 import { connectToDatabase } from "../../../lib/database";
+import { COLLECTION_NAMES } from "../../../lib/collectionNames";
+
 
 export default async function handler(req, res) {
   try {
     const { db, getObjectId, isUsingMock } = await connectToDatabase();
-    const collection = db.collection("archetypes");
+    const collection = db.collection(COLLECTION_NAMES.archetypes);
 
     if (req.method === "POST") {
       const archetypeData = {

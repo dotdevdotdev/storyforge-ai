@@ -1,4 +1,6 @@
 import { MongoClient, ObjectId } from "mongodb";
+import { COLLECTION_NAMES } from "../../../lib/collectionNames";
+
 
 const uri = process.env.MONGODB_URI;
 const dbName = process.env.MONGODB_DB;

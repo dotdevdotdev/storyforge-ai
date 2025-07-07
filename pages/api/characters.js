@@ -1,4 +1,5 @@
 import { connectToDatabase } from "../../lib/database";
+import { COLLECTION_NAMES } from "../../lib/collectionNames";
 
 // Migration function to update existing characters to new schema
 async function migrateCharacter(character) {
@@ -25,7 +26,7 @@ async function migrateCharacter(character) {
 export default async function handler(req, res) {
   try {
     const { db, getObjectId, isUsingMock } = await connectToDatabase();
-    const collection = db.collection("characters");
+    const collection = db.collection(COLLECTION_NAMES.characters);
 
     if (req.method === "POST") {
       const characterData = {

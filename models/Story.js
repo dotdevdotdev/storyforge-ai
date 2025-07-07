@@ -2,7 +2,7 @@ import clientPromise from "../lib/db";
 
 export async function saveStory(story, imageUrl) {
   const client = await clientPromise;
-  const db = client.db("storyforge");
+  const db = client.db(process.env.MONGODB_DB || "your_database_name");
   const result = await db.collection("stories").insertOne({
     content: story,
     imageUrl: imageUrl,
@@ -13,7 +13,7 @@ export async function saveStory(story, imageUrl) {
 
 export async function getStories() {
   const client = await clientPromise;
-  const db = client.db("storyforge");
+  const db = client.db(process.env.MONGODB_DB || "your_database_name");
   return await db
     .collection("stories")
     .find()

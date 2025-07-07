@@ -1,4 +1,6 @@
 import { MongoClient, ObjectId } from "mongodb";
+import { COLLECTION_NAMES } from "../../../lib/collectionNames";
+
 
 const uri = process.env.MONGODB_URI;
 const dbName = process.env.MONGODB_DB;
@@ -20,7 +22,7 @@ export default async function handler(req, res) {
   try {
     client = await MongoClient.connect(uri);
     const db = client.db(dbName);
-    const collection = db.collection("Locations");
+    const collection = db.collection(COLLECTION_NAMES.locations);
 
     if (req.method === "PUT") {
       const updateData = {

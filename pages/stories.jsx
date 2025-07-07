@@ -3,6 +3,7 @@ import Layout from "../components/Layout";
 import { StoryGenerationBoundary, APIBoundary } from "../components/ErrorBoundaryWrapper";
 import { Button, Textarea, Select, Card, LoadingSpinner, PageHeader } from "../components/ui";
 import StoryGenerationProgress from "../components/StoryGenerationProgress";
+import { StoryModal } from "../components/modals/StoryModal";
 
 const Stories = () => {
   const [userPrompt, setUserPrompt] = useState("");
@@ -16,6 +17,8 @@ const Stories = () => {
   const [savedStories, setSavedStories] = useState([]);
   const [isLoadingStories, setIsLoadingStories] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedStory, setSelectedStory] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     fetchStoryParameters();
@@ -38,7 +41,7 @@ const Stories = () => {
 
   const fetchSavedStories = async () => {
     try {
-      const response = await fetch("/api/stories/list");
+      const response = await fetch("/api/stories/list?includeUnpublished=true");
       if (response.ok) {
         const data = await response.json();
         setSavedStories(data);
@@ -221,6 +224,10 @@ const Stories = () => {
                   <div
                     key={story._id || index}
                     className="p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
+                    onClick={() => {
+                      setSelectedStory(story);
+                      setIsModalOpen(true);
+                    }}
                   >
                     <h3 className="font-medium text-sm text-gray-900 mb-1">
                       {story.title || `Story ${index + 1}`}
@@ -243,6 +250,15 @@ const Stories = () => {
           </Card>
         </div>
       </div>
+      
+      <StoryModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedStory(null);
+        }}
+        story={selectedStory}
+      />
     </Layout>
   );
 };

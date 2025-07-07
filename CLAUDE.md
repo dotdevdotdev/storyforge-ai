@@ -10,8 +10,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run build` - Build Next.js application for production
 - `npm run start` - Start production server
 
-### Development Workflow
-No testing framework is currently configured. The application uses nodemon for auto-reloading during development.
+### Linting and Testing
+- No linting configuration currently exists
+- No testing framework is configured
+- The application uses nodemon for auto-reloading during development
 
 ## Architecture Overview
 
@@ -122,3 +124,59 @@ Story parameters use a complex nested structure. When working with story generat
 - All database operations should use try/catch with proper error types
 - Frontend errors should be contained by error boundaries
 - Server errors logged with structured format including request context
+
+## ImageKit Integration
+
+### Environment Variables for Images
+- `NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY` - Client-side ImageKit public key
+- `NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT` - ImageKit URL endpoint
+- `IMAGEKIT_PRIVATE_KEY` - Server-side private key (never expose client-side)
+
+### Image Upload Guidelines
+- Always use the reusable `ImageUpload` component
+- Validate files: max 5MB, formats: jpeg, png, gif, webp
+- Use folder structure: `/entity-type/...`
+- Include unique filenames with timestamps
+- Handle authentication with Promise-based authenticator
+
+## Design System and UI Patterns
+
+### Complex Data Editing
+- Each complex data type requires specialized editor components
+- Support both form-based and raw JSON editing modes
+- Field types: text, textarea, json (with subtypes: list, key-value, nested-object)
+- Always provide example data in field definitions
+
+### Modal Design Standards
+- Header contains action controls (not footer)
+- Toggle between form/JSON editing modes
+- Consistent padding (2rem)
+- Full-width form elements
+- Proper overflow handling
+
+### Styling Conventions
+- Spacing: 2rem containers, 1rem gaps
+- Border radius: 4px standard, 8px for cards
+- Include hover effects for interactive elements
+- Maintain clear visual hierarchy
+- Ensure proper focus states
+
+## Critical Implementation Notes
+
+### Database Fallback System
+The application includes a mock database fallback when MongoDB is unavailable:
+- Primary: MongoDB connection via `MONGODB_URI`
+- Fallback: Mock database in `lib/mockDatabase.js`
+- Service automatically switches based on connection availability
+
+### Real-time Features
+Socket.io integration for live updates:
+- Story generation progress tracking
+- Real-time error notifications
+- Connection handling in `server.js`
+
+### AI Story Generation
+- Model: GPT-4o-mini via OpenAI API
+- Structured prompts with system messages
+- Story length guidelines enforced in prompts
+- Progress updates via Socket.io events

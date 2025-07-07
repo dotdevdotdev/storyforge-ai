@@ -55,6 +55,18 @@
     @apply font-semibold text-gray-900;
   }
   
+  /* Story content styling in modal */
+  .story-content {
+    @apply text-gray-800;
+    font-size: 1.05rem;
+    line-height: 1.8;
+  }
+  
+  .story-content p:first-of-type::first-letter {
+    @apply text-4xl font-bold float-left mr-2 mt-1 text-gray-700;
+    line-height: 0.8;
+  }
+  
   /* Animation utilities */
   .animate-fade-in {
     animation: fadeIn 0.3s ease-in-out;
