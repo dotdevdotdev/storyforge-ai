@@ -2,6 +2,21 @@
 @tailwind components;
 @tailwind utilities;
 
+/* CSS Variables */
+:root {
+  --primary: #3b82f6;
+  --primary-dark: #2563eb;
+  --error: #ef4444;
+  --error-bg: #fee;
+  --card-bg: #ffffff;
+  --bg-secondary: #f9fafb;
+  --bg-tertiary: #f3f4f6;
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --border-color: #e5e7eb;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
 /* Global Base Styles */
 @layer base {
   html {

@@ -1,10 +1,12 @@
 import "../styles/globals.css";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { Button, Card } from "../components/ui";
+import { SessionProvider } from "next-auth/react";
 
-function MyApp({ Component, pageProps }) {
+function MyApp({ Component, pageProps: { session, ...pageProps } }) {
   return (
-    <ErrorBoundary
+    <SessionProvider session={session}>
+      <ErrorBoundary
       fallback={(error) => (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
           <Card className="max-w-md w-full text-center">
@@ -32,6 +34,7 @@ function MyApp({ Component, pageProps }) {
     >
       <Component {...pageProps} />
     </ErrorBoundary>
+    </SessionProvider>
   );
 }
 

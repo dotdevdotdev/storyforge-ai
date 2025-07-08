@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { useSession, signOut } from 'next-auth/react';
 import { components } from '../styles/designSystem';
 
 const Navigation = () => {
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   
   const navItems = [
     { href: '/stories', label: 'Stories' },
@@ -45,6 +48,61 @@ const Navigation = () => {
                 {item.label}
               </Link>
             ))}
+            
+            {/* User Menu */}
+            <div className="ml-4 relative">
+              {status === 'loading' ? (
+                <div className="px-4 py-2 text-gray-500">Loading...</div>
+              ) : session ? (
+                <div>
+                  <button
+                    onClick={() => setUserMenuOpen(!userMenuOpen)}
+                    className="flex items-center px-4 py-2 text-gray-700 hover:text-blue-600 font-medium transition-colors"
+                  >
+                    {session.user?.name || session.user?.email || 'Account'}
+                    <svg className="ml-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  
+                  {userMenuOpen && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-md shadow-lg py-1 z-50">
+                      <Link
+                        href="/profile"
+                        className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
+                        onClick={() => setUserMenuOpen(false)}
+                      >
+                        Profile
+                      </Link>
+                      <button
+                        onClick={() => {
+                          setUserMenuOpen(false);
+                          signOut({ callbackUrl: '/' });
+                        }}
+                        className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100"
+                      >
+                        Sign Out
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <Link
+                    href="/auth/signin"
+                    className="px-4 py-2 text-gray-700 hover:text-blue-600 font-medium transition-colors"
+                  >
+                    Sign In
+                  </Link>
+                  <Link
+                    href="/auth/signup"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium transition-colors"
+                  >
+                    Sign Up
+                  </Link>
+                </div>
+              )}
+            </div>
           </div>
           
           {/* Mobile menu button */}
@@ -84,6 +142,52 @@ const Navigation = () => {
                   {item.label}
                 </Link>
               ))}
+              
+              {/* Mobile Auth Links */}
+              <div className="border-t border-gray-200 mt-2 pt-2">
+                {status === 'loading' ? (
+                  <div className="px-3 py-2 text-gray-500">Loading...</div>
+                ) : session ? (
+                  <>
+                    <div className="px-3 py-2 text-sm text-gray-500">
+                      Signed in as {session.user?.email}
+                    </div>
+                    <Link
+                      href="/profile"
+                      className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Profile
+                    </Link>
+                    <button
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        signOut({ callbackUrl: '/' });
+                      }}
+                      className="block w-full text-left px-3 py-2 text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50"
+                    >
+                      Sign Out
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      href="/auth/signin"
+                      className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Sign In
+                    </Link>
+                    <Link
+                      href="/auth/signup"
+                      className="block px-3 py-2 text-base font-medium text-blue-600 hover:text-blue-700 hover:bg-gray-50"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Sign Up
+                    </Link>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         )}

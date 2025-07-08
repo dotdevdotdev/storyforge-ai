@@ -5,10 +5,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Development Commands
 
 ### Running the Application
-- `npm run dev` - Start development environment (runs both server and Next.js in parallel)
-- `npm run server` - Start Express.js server only (port 3000 by default)
+- `npm run dev` - Start Next.js development server (port 3000)
 - `npm run build` - Build Next.js application for production
-- `npm run start` - Start production server
+- `npm run start` - Start Next.js production server
+- `npm run custom-server` - Run with custom Express server (for Socket.io features)
 
 ### Linting and Testing
 - No linting configuration currently exists
@@ -25,27 +25,35 @@ StoryForge AI is a full-stack AI-powered storytelling platform built with Next.j
 - **Database**: MongoDB with connection pooling
 - **AI Integration**: OpenAI GPT-4o-mini for story generation
 - **Image Handling**: ImageKit integration for uploads and processing
+- **Text-to-Speech**: ElevenLabs API integration for story narration
 
 ### Key Architecture Patterns
 
-#### Hybrid Server Architecture
-The application runs both a Next.js application and a custom Express server concurrently:
-- Express server (`server.js`) handles Socket.io connections and custom middleware
-- Next.js handles API routes (`/pages/api/`) and frontend rendering
-- Both servers run on the same port with Express delegating to Next.js
+#### Server Architecture
+The application primarily uses Next.js's built-in server:
+- Next.js handles all routing, API routes (`/pages/api/`), and page rendering
+- Optional custom Express server (`server.js`) available for Socket.io features
+- For development, use standard `npm run dev` (Next.js only)
+- Socket.io features documented in `/docs/future-features/realtime-collaboration.md`
 
 #### Database Layer
 - **Connection Management**: Uses singleton pattern in `lib/services/storyService.js` for MongoDB connections
 - **Dual Database Approach**: 
   - Simple model in `models/Story.js` for basic operations
   - Advanced service layer in `lib/services/storyService.js` for complex operations
-- **Collections**: `stories`, `story_drafts`, `story_parameters`, plus resource collections for `characters`, `locations`, `themes`, `archetypes`
+- **Collections**: `stories`, `story_drafts`, `story_parameters`, `story_audio`, plus resource collections for `characters`, `locations`, `themes`, `archetypes`
 
 #### Story Generation System
 - **AI Integration**: `lib/ai.js` handles OpenAI interactions with structured prompts
 - **Prompt Building**: `lib/promptBuilder.js` creates formatted prompts from story parameters
 - **Story Parameters**: Complex nested object system for defining story elements
 - **Progress Tracking**: Real-time story generation progress via Socket.io
+
+#### Text-to-Speech Integration
+- **API Endpoint**: `/api/tts.js` handles ElevenLabs TTS requests
+- **Caching System**: Audio results cached in `story_audio` collection to reduce API calls
+- **Voice Configuration**: Uses "Andrea Wolff" voice (ID: Crm8VULvkVs5ZBDa1Ixm) with preset settings
+- **Audio Format**: Returns base64-encoded MP3 audio for browser playback
 
 ### Component Architecture
 
@@ -65,6 +73,7 @@ The application uses a consistent pattern across resource types (characters, loc
 - **Custom Error Types**: Defined in `lib/errors/types.js`
 - **Centralized Handler**: `lib/errors/handler.js` with MongoDB-specific middleware
 - **Server-Level**: Express error middleware in `middleware/`
+- **Structured Logging**: Server errors logged with timestamp, error details, and request context
 
 ### Data Flow Patterns
 
@@ -86,8 +95,14 @@ The application uses a consistent pattern across resource types (characters, loc
 Required environment variables:
 - `MONGODB_URI` or `MONGODB_HOST`/`MONGODB_PORT` - Database connection
 - `OPENAI_API_KEY` - AI story generation
+- `ELEVENLABS_API_KEY` - Text-to-speech integration
 - `SERVER_PORT` - Server port (defaults to 3000)
 - `MONGODB_DB` - Database name (defaults to 'storyforge')
+
+ImageKit integration:
+- `NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY` - Client-side ImageKit public key
+- `NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT` - ImageKit URL endpoint
+- `IMAGEKIT_PRIVATE_KEY` - Server-side private key (never expose client-side)
 
 ## File Organization
 
@@ -103,8 +118,10 @@ Required environment variables:
 - `server.js` - Main Express server with Socket.io setup
 - `lib/ai.js` - OpenAI integration and story generation
 - `lib/services/storyService.js` - Advanced database operations
+- `pages/api/tts.js` - ElevenLabs TTS integration endpoint
 - `design-document--storyforge-ai.md` - Comprehensive project documentation
 - `todo.md` - Current development priorities and task tracking
+- `project-goals.md` - Long-term roadmap and feature planning
 
 ## Development Notes
 
@@ -124,13 +141,15 @@ Story parameters use a complex nested structure. When working with story generat
 - All database operations should use try/catch with proper error types
 - Frontend errors should be contained by error boundaries
 - Server errors logged with structured format including request context
+- Socket.io errors handled separately with connection recovery
+
+### Git Workflow
+- Main branch: `main`
+- Feature branches created from main
+- Commit messages should describe changes clearly
+- No pre-commit hooks configured
 
 ## ImageKit Integration
-
-### Environment Variables for Images
-- `NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY` - Client-side ImageKit public key
-- `NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT` - ImageKit URL endpoint
-- `IMAGEKIT_PRIVATE_KEY` - Server-side private key (never expose client-side)
 
 ### Image Upload Guidelines
 - Always use the reusable `ImageUpload` component
@@ -180,3 +199,23 @@ Socket.io integration for live updates:
 - Structured prompts with system messages
 - Story length guidelines enforced in prompts
 - Progress updates via Socket.io events
+
+### Audio Caching Strategy
+The TTS system implements intelligent caching:
+- Audio cached by text hash + voice ID combination
+- Reduces redundant API calls for identical content
+- Stored as base64 in MongoDB for fast retrieval
+- Cache entries include metadata for debugging
+
+## Project Roadmap
+
+StoryForge AI follows a progressive enhancement strategy outlined in `project-goals.md`. The development is organized into 6 major phases:
+
+1. **Authentication Foundation** - User accounts and secure authentication
+2. **Multi-Tenant Architecture** - User-owned resources and data isolation  
+3. **Sharing & Visibility** - Public/private stories and community features
+4. **Community Platform** - Discovery, engagement, and social features
+5. **AI Image Generation** - Visual storytelling with generated illustrations
+6. **Kid-Friendly UI** - Magical, gamified interface for young users
+
+Each phase builds upon the previous one and should be fully tested before proceeding. See `project-goals.md` for detailed tasks, timelines, and success criteria.
