@@ -1,12 +1,14 @@
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { PageHeader } from "../components/shared/PageHeader";
 import Navigation from "../components/Navigation";
 
 export default function Profile() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (status === "loading") return;
@@ -14,6 +16,26 @@ export default function Profile() {
       router.push("/auth/signin");
     }
   }, [session, status, router]);
+
+  useEffect(() => {
+    if (session) {
+      fetchUserStats();
+    }
+  }, [session]);
+
+  const fetchUserStats = async () => {
+    try {
+      const response = await fetch('/api/user/stats');
+      if (response.ok) {
+        const data = await response.json();
+        setStats(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch user stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (status === "loading") {
     return (
@@ -71,23 +93,44 @@ export default function Profile() {
             {/* Account Stats Card */}
             <div className="bg-white rounded-lg shadow-sm p-6">
               <h2 className="text-xl font-semibold mb-6">Your Activity</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="text-center p-4 bg-gray-50 rounded-lg">
-                  <div className="text-3xl font-bold text-blue-600">0</div>
-                  <div className="text-sm text-gray-500 mt-1">Stories Created</div>
-                </div>
-                <div className="text-center p-4 bg-gray-50 rounded-lg">
-                  <div className="text-3xl font-bold text-green-600">0</div>
-                  <div className="text-sm text-gray-500 mt-1">Characters</div>
-                </div>
-                <div className="text-center p-4 bg-gray-50 rounded-lg">
-                  <div className="text-3xl font-bold text-purple-600">0</div>
-                  <div className="text-sm text-gray-500 mt-1">Story Parameters</div>
-                </div>
-              </div>
-              <p className="text-sm text-gray-500 mt-6 text-center">
-                Statistics will update as you create content
-              </p>
+              {loading ? (
+                <div className="text-center py-8 text-gray-500">Loading statistics...</div>
+              ) : stats ? (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="text-center p-4 bg-gray-50 rounded-lg">
+                      <div className="text-3xl font-bold text-blue-600">{stats.stories || 0}</div>
+                      <div className="text-sm text-gray-500 mt-1">Stories Created</div>
+                    </div>
+                    <div className="text-center p-4 bg-gray-50 rounded-lg">
+                      <div className="text-3xl font-bold text-green-600">{stats.characters || 0}</div>
+                      <div className="text-sm text-gray-500 mt-1">Characters</div>
+                    </div>
+                    <div className="text-center p-4 bg-gray-50 rounded-lg">
+                      <div className="text-3xl font-bold text-purple-600">{stats.story_parameters || 0}</div>
+                      <div className="text-sm text-gray-500 mt-1">Story Parameters</div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
+                    <div className="text-center p-4 bg-gray-50 rounded-lg">
+                      <div className="text-3xl font-bold text-orange-600">{stats.themes || 0}</div>
+                      <div className="text-sm text-gray-500 mt-1">Themes</div>
+                    </div>
+                    <div className="text-center p-4 bg-gray-50 rounded-lg">
+                      <div className="text-3xl font-bold text-indigo-600">{stats.archetypes || 0}</div>
+                      <div className="text-sm text-gray-500 mt-1">Archetypes</div>
+                    </div>
+                    <div className="text-center p-4 bg-gray-50 rounded-lg">
+                      <div className="text-3xl font-bold text-pink-600">{stats.locations || 0}</div>
+                      <div className="text-sm text-gray-500 mt-1">Locations</div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-gray-500 text-center">
+                  Failed to load statistics
+                </p>
+              )}
             </div>
 
             {/* Quick Actions Card */}

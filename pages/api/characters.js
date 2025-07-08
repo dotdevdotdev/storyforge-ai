@@ -1,5 +1,6 @@
-import { connectToDatabase } from "../../lib/database";
 import { COLLECTION_NAMES } from "../../lib/collectionNames";
+import dal from "../../lib/services/dataAccessLayer";
+import { withAuth } from "../../middleware/withAuth";
 
 // Migration function to update existing characters to new schema
 async function migrateCharacter(character) {
@@ -23,23 +24,22 @@ async function migrateCharacter(character) {
   return character;
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   try {
-    const { db, getObjectId, isUsingMock } = await connectToDatabase();
-    const collection = db.collection(COLLECTION_NAMES.characters);
+    const userId = req.userId; // Added by withAuth middleware
 
     if (req.method === "POST") {
       const characterData = {
         ...req.body,
-        createdAt: new Date(),
       };
-      const result = await collection.insertOne(characterData);
+      const result = await dal.create(COLLECTION_NAMES.characters, characterData, userId);
       res.status(201).json({
         message: "Character created successfully",
-        id: result.insertedId,
+        id: result._id,
+        character: result,
       });
     } else if (req.method === "GET") {
-      const characters = await collection.find({}).toArray();
+      const characters = await dal.find(COLLECTION_NAMES.characters, {}, userId);
       const migratedCharacters = await Promise.all(
         characters.map(migrateCharacter)
       );
@@ -54,3 +54,5 @@ export default async function handler(req, res) {
       .json({ message: "Internal server error", error: error.message });
   }
 }
+
+export default (req, res) => withAuth(req, res, handler);

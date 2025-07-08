@@ -1,92 +1,56 @@
-import { MongoClient, ObjectId } from "mongodb";
 import { COLLECTION_NAMES } from "../../../lib/collectionNames";
+import dal from "../../../lib/services/dataAccessLayer";
+import { withAuth } from "../../../middleware/withAuth";
 
-
-const uri = process.env.MONGODB_URI;
-const dbName = process.env.MONGODB_DB;
-
-export default async function handler(req, res) {
-  if (!uri || !dbName) {
-    console.error("MongoDB configuration missing");
-    return res.status(500).json({ error: "MongoDB configuration missing" });
-  }
-
+async function handler(req, res) {
   const { id } = req.query;
-  console.log("Received ID:", id);
+  const userId = req.userId; // Added by withAuth middleware
 
   if (!id) {
     return res.status(400).json({ message: "Character ID is required" });
   }
 
-  let client;
   try {
-    client = await MongoClient.connect(uri);
-    const db = client.db(dbName);
-    const collection = db.collection(COLLECTION_NAMES.characters);
-
     if (req.method === "PUT") {
-      const updateData = {
-        ...req.body,
-        updatedAt: new Date(),
-      };
+      const updateData = { ...req.body };
       delete updateData._id;
+      delete updateData.userId; // Prevent userId modification
+      delete updateData.createdAt; // Prevent createdAt modification
+      delete updateData.createdBy; // Prevent createdBy modification
 
-      console.log("Attempting to update character with ID:", id);
-      console.log("Update data:", updateData);
+      const result = await dal.update(
+        COLLECTION_NAMES.characters,
+        id,
+        updateData,
+        userId
+      );
 
-      try {
-        const objectId = new ObjectId(id);
-        console.log("Parsed ObjectId:", objectId);
-
-        const result = await collection.findOneAndUpdate(
-          { _id: objectId },
-          { $set: updateData },
-          {
-            returnDocument: "after",
-          }
-        );
-
-        console.log("MongoDB result:", result);
-
-        if (!result) {
-          console.log("No character found with ID:", id);
-          return res.status(404).json({ message: "Character not found" });
-        }
-
-        res.status(200).json(result);
-      } catch (idError) {
-        console.error("Error parsing ObjectId:", idError);
-        return res.status(400).json({ message: "Invalid character ID format" });
-      }
+      res.status(200).json(result);
     } else if (req.method === "GET") {
-      const character = await collection.findOne({ _id: new ObjectId(id) });
-
-      if (!character) {
-        return res.status(404).json({ message: "Character not found" });
-      }
-
+      const character = await dal.findById(
+        COLLECTION_NAMES.characters,
+        id,
+        userId
+      );
       res.status(200).json(character);
     } else if (req.method === "DELETE") {
-      const result = await collection.deleteOne({ _id: new ObjectId(id) });
-
-      if (result.deletedCount === 0) {
-        return res.status(404).json({ message: "Character not found" });
-      }
-
+      await dal.delete(COLLECTION_NAMES.characters, id, userId);
       res.status(200).json({ message: "Character deleted successfully" });
     } else {
       res.status(405).json({ message: "Method not allowed" });
     }
   } catch (error) {
-    console.error("MongoDB operation failed:", error);
+    console.error("Database operation failed:", error);
+    
+    if (error.message === "Resource not found or access denied") {
+      return res.status(404).json({ message: "Character not found" });
+    }
+    
     res.status(500).json({
       message: "Internal server error",
       error: error.message,
-      stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
     });
-  } finally {
-    if (client) {
-      await client.close();
-    }
   }
 }
+
+export default (req, res) => withAuth(req, res, handler);

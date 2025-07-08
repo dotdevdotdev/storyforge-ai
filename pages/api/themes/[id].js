@@ -1,69 +1,56 @@
-import { MongoClient, ObjectId } from "mongodb";
 import { COLLECTION_NAMES } from "../../../lib/collectionNames";
+import dal from "../../../lib/services/dataAccessLayer";
+import { withAuth } from "../../../middleware/withAuth";
 
-
-const uri = process.env.MONGODB_URI;
-const dbName = process.env.MONGODB_DB;
-
-export default async function handler(req, res) {
-  if (!uri || !dbName) {
-    console.error("MongoDB configuration missing");
-    return res.status(500).json({ error: "MongoDB configuration missing" });
-  }
-
+async function handler(req, res) {
   const { id } = req.query;
+  const userId = req.userId; // Added by withAuth middleware
+
   if (!id) {
     return res.status(400).json({ message: "Theme ID is required" });
   }
 
-  let client;
   try {
-    client = await MongoClient.connect(uri);
-    const db = client.db(dbName);
-    const collection = db.collection(COLLECTION_NAMES.themes);
-
     if (req.method === "PUT") {
-      const updateData = {
-        ...req.body,
-        updatedAt: new Date(),
-      };
+      const updateData = { ...req.body };
       delete updateData._id;
+      delete updateData.userId;
+      delete updateData.createdAt;
+      delete updateData.createdBy;
 
-      try {
-        const objectId = new ObjectId(id);
-        const result = await collection.findOneAndUpdate(
-          { _id: objectId },
-          { $set: updateData },
-          { returnDocument: "after" }
-        );
+      const result = await dal.update(
+        COLLECTION_NAMES.themes,
+        id,
+        updateData,
+        userId
+      );
 
-        if (!result) {
-          return res.status(404).json({ message: "Theme not found" });
-        }
-
-        res.status(200).json(result);
-      } catch (idError) {
-        return res.status(400).json({ message: "Invalid theme ID format" });
-      }
+      res.status(200).json(result);
+    } else if (req.method === "GET") {
+      const theme = await dal.findById(
+        COLLECTION_NAMES.themes,
+        id,
+        userId
+      );
+      res.status(200).json(theme);
     } else if (req.method === "DELETE") {
-      const result = await collection.deleteOne({ _id: new ObjectId(id) });
-
-      if (result.deletedCount === 0) {
-        return res.status(404).json({ message: "Theme not found" });
-      }
-
+      await dal.delete(COLLECTION_NAMES.themes, id, userId);
       res.status(200).json({ message: "Theme deleted successfully" });
     } else {
       res.status(405).json({ message: "Method not allowed" });
     }
   } catch (error) {
-    console.error("MongoDB operation failed:", error);
-    res
-      .status(500)
-      .json({ message: "Internal server error", error: error.message });
-  } finally {
-    if (client) {
-      await client.close();
+    console.error("Database operation failed:", error);
+    
+    if (error.message === "Resource not found or access denied") {
+      return res.status(404).json({ message: "Theme not found" });
     }
+    
+    res.status(500).json({
+      message: "Internal server error",
+      error: error.message,
+    });
   }
 }
+
+export default (req, res) => withAuth(req, res, handler);

@@ -313,9 +313,18 @@ const Characters = () => {
       });
 
       if (response.ok) {
-        const character = await response.json();
-        setCharacters([character, ...characters]);
+        const result = await response.json();
+        // The response includes both the character and the ID
+        const newChar = result.character || result;
+        
+        // Add the new character to the list
+        setCharacters(prevCharacters => [newChar, ...prevCharacters]);
+        
+        // Reset the form
         setNewCharacter({ name: "", imageUrl: "", description: "" });
+        
+        // Optional: Show a success message
+        console.log("Character created successfully:", newChar);
       }
     } catch (error) {
       console.error("Error creating character:", error);
@@ -350,7 +359,7 @@ const Characters = () => {
       />
 
       {/* Character Creation Form */}
-      <Card className="mb-8">
+      <Card className="mb-8 overflow-visible">
         <h2 className="text-xl font-semibold text-gray-900 mb-6">Create New Character</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -378,9 +387,15 @@ const Characters = () => {
             helperText="Describe the character's appearance, personality, or background"
           />
 
-          <Button type="submit" variant="primary">
-            Create Character
-          </Button>
+          <div className="mt-6 pt-4 border-t border-gray-200">
+            <Button 
+              type="submit" 
+              variant="primary" 
+              className="w-full md:w-auto px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+            >
+              Create Character
+            </Button>
+          </div>
         </form>
       </Card>
 

@@ -1,81 +1,56 @@
-import { MongoClient, ObjectId } from "mongodb";
 import { COLLECTION_NAMES } from "../../../lib/collectionNames";
+import dal from "../../../lib/services/dataAccessLayer";
+import { withAuth } from "../../../middleware/withAuth";
 
-
-const uri = process.env.MONGODB_URI;
-const dbName = process.env.MONGODB_DB;
-
-export default async function handler(req, res) {
-  if (!uri || !dbName) {
-    console.error("MongoDB configuration missing");
-    return res.status(500).json({ error: "MongoDB configuration missing" });
-  }
-
+async function handler(req, res) {
   const { id } = req.query;
-  console.log("Received ID:", id);
+  const userId = req.userId; // Added by withAuth middleware
 
   if (!id) {
     return res.status(400).json({ message: "Location ID is required" });
   }
 
-  let client;
   try {
-    client = await MongoClient.connect(uri);
-    const db = client.db(dbName);
-    const collection = db.collection(COLLECTION_NAMES.locations);
-
     if (req.method === "PUT") {
-      const updateData = {
-        ...req.body,
-        updatedAt: new Date(),
-      };
+      const updateData = { ...req.body };
       delete updateData._id;
+      delete updateData.userId;
+      delete updateData.createdAt;
+      delete updateData.createdBy;
 
-      try {
-        const objectId = new ObjectId(id);
-        const result = await collection.findOneAndUpdate(
-          { _id: objectId },
-          { $set: updateData },
-          { returnDocument: "after" }
-        );
+      const result = await dal.update(
+        COLLECTION_NAMES.locations,
+        id,
+        updateData,
+        userId
+      );
 
-        if (!result) {
-          return res.status(404).json({ message: "Location not found" });
-        }
-
-        res.status(200).json(result);
-      } catch (idError) {
-        return res.status(400).json({ message: "Invalid location ID format" });
-      }
+      res.status(200).json(result);
     } else if (req.method === "GET") {
-      const location = await collection.findOne({ _id: new ObjectId(id) });
-
-      if (!location) {
-        return res.status(404).json({ message: "Location not found" });
-      }
-
+      const location = await dal.findById(
+        COLLECTION_NAMES.locations,
+        id,
+        userId
+      );
       res.status(200).json(location);
     } else if (req.method === "DELETE") {
-      const result = await collection.deleteOne({ _id: new ObjectId(id) });
-
-      if (result.deletedCount === 0) {
-        return res.status(404).json({ message: "Location not found" });
-      }
-
+      await dal.delete(COLLECTION_NAMES.locations, id, userId);
       res.status(200).json({ message: "Location deleted successfully" });
     } else {
       res.status(405).json({ message: "Method not allowed" });
     }
   } catch (error) {
-    console.error("MongoDB operation failed:", error);
+    console.error("Database operation failed:", error);
+    
+    if (error.message === "Resource not found or access denied") {
+      return res.status(404).json({ message: "Location not found" });
+    }
+    
     res.status(500).json({
       message: "Internal server error",
       error: error.message,
-      stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
     });
-  } finally {
-    if (client) {
-      await client.close();
-    }
   }
 }
+
+export default (req, res) => withAuth(req, res, handler);

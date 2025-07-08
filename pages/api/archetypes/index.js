@@ -1,33 +1,33 @@
-import { connectToDatabase } from "../../../lib/database";
-import { COLLECTION_NAMES } from "../../../lib/collectionNames";
+import { COLLECTION_NAMES } from "../../lib/collectionNames";
+import dal from "../../lib/services/dataAccessLayer";
+import { withAuth } from "../../middleware/withAuth";
 
-
-export default async function handler(req, res) {
+async function handler(req, res) {
   try {
-    const { db, getObjectId, isUsingMock } = await connectToDatabase();
-    const collection = db.collection(COLLECTION_NAMES.archetypes);
+    const userId = req.userId; // Added by withAuth middleware
 
     if (req.method === "POST") {
       const archetypeData = {
         ...req.body,
-        createdAt: new Date(),
       };
-      const result = await collection.insertOne(archetypeData);
+      const result = await dal.create(COLLECTION_NAMES.archetypes, archetypeData, userId);
       res.status(201).json({
         message: "Archetype created successfully",
-        id: result.insertedId,
+        id: result._id,
+        archetype: result,
       });
     } else if (req.method === "GET") {
-      const archetypes = await collection.find({}).toArray();
+      const archetypes = await dal.find(COLLECTION_NAMES.archetypes, {}, userId);
       res.status(200).json(archetypes);
     } else {
       res.status(405).json({ message: "Method not allowed" });
     }
   } catch (error) {
     console.error("Database operation failed:", error);
-    res.status(500).json({
-      message: "Internal server error",
-      error: error.message,
-    });
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: error.message });
   }
 }
+
+export default (req, res) => withAuth(req, res, handler);

@@ -1,11 +1,10 @@
-import { connectToDatabase } from "../../../lib/database";
 import { COLLECTION_NAMES } from "../../../lib/collectionNames";
+import dal from "../../../lib/services/dataAccessLayer";
+import { withAuth } from "../../../middleware/withAuth";
 
-
-export default async function handler(req, res) {
+async function handler(req, res) {
   try {
-    const { db, getObjectId, isUsingMock } = await connectToDatabase();
-    const collection = db.collection(COLLECTION_NAMES.storyParameters);
+    const userId = req.userId; // Added by withAuth middleware
 
     if (req.method === "POST") {
       const parameterData =
@@ -40,19 +39,23 @@ export default async function handler(req, res) {
         }
       }
 
-      const dataToSave = {
-        ...parameterData,
-        createdAt: new Date(),
-      };
-
-      const result = await collection.insertOne(dataToSave);
+      const result = await dal.create(
+        COLLECTION_NAMES.storyParameters,
+        parameterData,
+        userId
+      );
+      
       res.status(201).json({
         message: "Story parameters created successfully",
-        id: result.insertedId,
+        id: result._id,
+        storyParameter: result,
       });
     } else if (req.method === "GET") {
-      const parameters = await collection.find({}).toArray();
-      console.log("Fetched parameters:", parameters);
+      const parameters = await dal.find(
+        COLLECTION_NAMES.storyParameters,
+        {},
+        userId
+      );
       res.status(200).json(parameters);
     } else {
       res.status(405).json({ message: "Method not allowed" });
@@ -65,3 +68,5 @@ export default async function handler(req, res) {
     });
   }
 }
+
+export default (req, res) => withAuth(req, res, handler);

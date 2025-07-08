@@ -1,24 +1,23 @@
-import { connectToDatabase } from "../../lib/database";
 import { COLLECTION_NAMES } from "../../lib/collectionNames";
+import dal from "../../lib/services/dataAccessLayer";
+import { withAuth } from "../../middleware/withAuth";
 
-
-export default async function handler(req, res) {
+async function handler(req, res) {
   try {
-    const { db, getObjectId, isUsingMock } = await connectToDatabase();
-    const collection = db.collection(COLLECTION_NAMES.locations);
+    const userId = req.userId; // Added by withAuth middleware
 
     if (req.method === "POST") {
       const locationData = {
         ...req.body,
-        createdAt: new Date(),
       };
-      const result = await collection.insertOne(locationData);
+      const result = await dal.create(COLLECTION_NAMES.locations, locationData, userId);
       res.status(201).json({
         message: "Location created successfully",
-        id: result.insertedId,
+        id: result._id,
+        location: result,
       });
     } else if (req.method === "GET") {
-      const locations = await collection.find({}).toArray();
+      const locations = await dal.find(COLLECTION_NAMES.locations, {}, userId);
       res.status(200).json(locations);
     } else {
       res.status(405).json({ message: "Method not allowed" });
@@ -30,3 +29,5 @@ export default async function handler(req, res) {
       .json({ message: "Internal server error", error: error.message });
   }
 }
+
+export default (req, res) => withAuth(req, res, handler);

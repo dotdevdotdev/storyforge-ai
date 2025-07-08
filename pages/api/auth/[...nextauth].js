@@ -5,7 +5,7 @@ import GithubProvider from "next-auth/providers/github";
 import bcrypt from "bcryptjs";
 import { connectToDatabase } from "../../../lib/database";
 
-export default NextAuth({
+export const authOptions = {
   providers: [
     CredentialsProvider({
       name: "credentials",
@@ -83,4 +83,6 @@ export default NextAuth({
   },
   secret: process.env.NEXTAUTH_SECRET,
   debug: process.env.NODE_ENV === "development",
-});
+};
+
+export default NextAuth(authOptions);
